@@ -52,8 +52,8 @@ public class MainView extends JFrame {
         JLabel searchCategoryLabel = new JLabel("검색 범위: ");
         topPanel.add(searchCategoryLabel);
 
-        // 검색 범위 콤보박스
-        String[] searchCategories = {"전체", "부서", "성별", "연봉", "그룹별 평균"};
+        // 검색 범위 콤보박스 - "연봉"을 "급여"로 변경
+        String[] searchCategories = {"전체", "부서", "성별", "급여", "그룹별 평균"};
         searchCategoryComboBox = new JComboBox<>(searchCategories);
         topPanel.add(searchCategoryComboBox);
 
@@ -263,7 +263,7 @@ public class MainView extends JFrame {
                 }
                 cl.show(searchValuePanel, "COMBO");
                 break;
-            case "연봉":
+            case "급여":
                 salaryTextField.setText("");
                 cl.show(searchValuePanel, "SALARY");
                 break;
@@ -305,7 +305,7 @@ public class MainView extends JFrame {
 
     public String getSelectedValue() {
         String selectedCategory = (String) searchCategoryComboBox.getSelectedItem();
-        if ("연봉".equals(selectedCategory)) {
+        if ("급여".equals(selectedCategory)) {
             return salaryTextField.getText().trim();
         }
         return (String) searchValueComboBox.getSelectedItem();
