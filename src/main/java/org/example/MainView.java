@@ -26,6 +26,7 @@ public class MainView extends JFrame {
     private JPanel tablePanel;
     private List<EmployeeDeleteListener> deleteListeners = new ArrayList<>();
     private List<EmployeeAddListener> addListeners = new ArrayList<>();
+    private JComboBox<String> projectComboBox; // 프로젝트 선택을 위한 콤보박스 추가
 
     public interface EmployeeDeleteListener {
         void onDeleteEmployees(List<String> ssnList);
@@ -53,7 +54,7 @@ public class MainView extends JFrame {
         topPanel.add(searchCategoryLabel);
 
         // 검색 범위 콤보박스
-        String[] searchCategories = {"전체", "부서", "성별", "연봉", "그룹별 평균"};
+        String[] searchCategories = {"전체", "부서", "성별", "연봉", "그룹별 평균", "프로젝트"};
         searchCategoryComboBox = new JComboBox<>(searchCategories);
         topPanel.add(searchCategoryComboBox);
 
@@ -63,11 +64,13 @@ public class MainView extends JFrame {
         salaryTextField = new JTextField(10);
         String[] groupCategories = {"그룹 없음", "부서", "성별", "상급자"};
         groupByComboBox = new JComboBox<>(groupCategories);
+        projectComboBox = new JComboBox<>(); // 프로젝트 선택을 위한 콤보박스 추가
 
         // 검색 값 패널에 컴포넌트 추가
         searchValuePanel.add(searchValueComboBox, "COMBO");
         searchValuePanel.add(salaryTextField, "SALARY");
         searchValuePanel.add(groupByComboBox, "GROUP");
+        searchValuePanel.add(projectComboBox, "PROJECT"); // 프로젝트 선택을 위한 콤보박스 추가
         topPanel.add(searchValuePanel);
 
         // 검색 버튼
@@ -205,6 +208,11 @@ public class MainView extends JFrame {
                 cardLayout.show(tablePanel, "AVERAGE");
                 CardLayout cl = (CardLayout) (searchValuePanel.getLayout());
                 cl.show(searchValuePanel, "GROUP");
+            } else if ("프로젝트".equals(selectedCategory)) {
+                cardLayout.show(tablePanel, "EMPLOYEE");
+                updateSearchValues(selectedCategory);
+                CardLayout cl = (CardLayout) (searchValuePanel.getLayout());
+                cl.show(searchValuePanel, "PROJECT");
             } else {
                 cardLayout.show(tablePanel, "EMPLOYEE");
                 updateSearchValues(selectedCategory);
@@ -273,6 +281,12 @@ public class MainView extends JFrame {
                 break;
             case "그룹별 평균":
                 cl.show(searchValuePanel, "GROUP");
+                break;
+            case "프로젝트":
+                projectComboBox.removeAllItems();
+                // 프로젝트 목록을 업데이트하기 위해 리스너에게 요청
+                fireRequestProjectList();
+                cl.show(searchValuePanel, "PROJECT");
                 break;
         }
     }
@@ -346,5 +360,34 @@ public class MainView extends JFrame {
             };
             averageSalaryTableModel.addRow(row);
         }
+    }
+
+    // 프로젝트 목록을 요청하는 리스너 인터페이스 및 메소드 추가
+    private List<ProjectListListener> projectListListeners = new ArrayList<>();
+
+    public interface ProjectListListener {
+        void onRequestProjectList();
+    }
+
+    public void addProjectListListener(ProjectListListener listener) {
+        projectListListeners.add(listener);
+    }
+
+    private void fireRequestProjectList() {
+        for (ProjectListListener listener : projectListListeners) {
+            listener.onRequestProjectList();
+        }
+    }
+
+    // 프로젝트 목록을 설정하는 메소드 추가
+    public void setProjectList(List<String> projects) {
+        projectComboBox.removeAllItems();
+        for (String project : projects) {
+            projectComboBox.addItem(project);
+        }
+    }
+
+    public String getSelectedProject() {
+        return (String) projectComboBox.getSelectedItem();
     }
 }

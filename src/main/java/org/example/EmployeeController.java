@@ -24,6 +24,12 @@ public class EmployeeController {
             model.addEmployee(fname, minit, lname, ssn, bdate, address, sex, salary, superSsn, dno);
             loadEmployeeData(); // 테이블 새로고침
         });
+
+        // 프로젝트 목록 요청 리스너 추가
+        this.view.addProjectListListener(() -> {
+            List<String> projects = model.getProjectList();
+            view.setProjectList(projects);
+        });
     }
 
     private void loadEmployeeData() {
@@ -40,6 +46,9 @@ public class EmployeeController {
 
             if ("전체".equals(selectedCategory)) {
                 employees = model.getAllEmployees();
+            } else if ("프로젝트".equals(selectedCategory)) {
+                String selectedProject = view.getSelectedProject();
+                employees = model.getEmployeesByProject(selectedProject);
             } else {
                 employees = model.searchEmployees(selectedCategory, selectedValue);
             }

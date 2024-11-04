@@ -245,4 +245,70 @@ public class EmployeeModel {
             e.printStackTrace();
         }
     }
+
+    // 프로젝트 목록을 가져오는 메소드 추가
+    public List<String> getProjectList() {
+        List<String> projectList = new ArrayList<>();
+        String query = "SELECT DISTINCT Pname FROM PROJECT";
+
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+            try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD);
+                 Statement statement = connection.createStatement();
+                 ResultSet resultSet = statement.executeQuery(query)) {
+
+                while (resultSet.next()) {
+                    projectList.add(resultSet.getString("Pname"));
+                }
+            }
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(null, "프로젝트 목록을 가져오는 중 오류 발생: " + e.getMessage(),
+                    "Error", JOptionPane.ERROR_MESSAGE);
+        }
+
+        return projectList;
+    }
+
+    // 특정 프로젝트에 참여하는 직원들을 가져오는 메소드 추가
+    public List<Employee> getEmployeesByProject(String projectName) {
+        List<Employee> employees = new ArrayList<>();
+        String query = "SELECT E.Fname, E.Lname, E.SSN, E.Bdate, E.Address, E.Sex, E.Salary, " +
+                "S.Fname AS Supervisor, D.Dname " +
+                "FROM EMPLOYEE E " +
+                "LEFT JOIN EMPLOYEE S ON E.Super_ssn = S.SSN " +
+                "JOIN DEPARTMENT D ON E.Dno = D.Dnumber " +
+                "JOIN WORKS_ON W ON E.SSN = W.Essn " +
+                "JOIN PROJECT P ON W.Pno = P.Pnumber " +
+                "WHERE P.Pname = ?";
+
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+            try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD);
+                 PreparedStatement statement = connection.prepareStatement(query)) {
+
+                statement.setString(1, projectName);
+
+                try (ResultSet resultSet = statement.executeQuery()) {
+                    while (resultSet.next()) {
+                        Employee employee = new Employee(
+                                resultSet.getString("Fname") + " " + resultSet.getString("Lname"),
+                                resultSet.getString("SSN"),
+                                resultSet.getString("Bdate"),
+                                resultSet.getString("Address"),
+                                resultSet.getString("Sex"),
+                                resultSet.getDouble("Salary"),
+                                resultSet.getString("Supervisor"),
+                                resultSet.getString("Dname")
+                        );
+                        employees.add(employee);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(null, "직원 검색 중 오류가 발생했습니다: " + e.getMessage(),
+                    "Error", JOptionPane.ERROR_MESSAGE);
+        }
+
+        return employees;
+    }
 }
