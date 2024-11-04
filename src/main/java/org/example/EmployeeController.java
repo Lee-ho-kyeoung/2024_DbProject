@@ -1,4 +1,4 @@
-package org.example;
+package org.example; // 실행 파일
 
 import javax.swing.*;
 import java.util.List;
