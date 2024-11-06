@@ -261,7 +261,7 @@ gradle-app.setting
 *.hprof
 
 ###
-.env
+../.env
 .DS_Store
 Thumbs.db
 .idea/

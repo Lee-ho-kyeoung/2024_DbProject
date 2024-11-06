@@ -30,6 +30,8 @@ public class MainView extends JFrame {
     private JPanel tablePanel;
     private List<EmployeeDeleteListener> deleteListeners = new ArrayList<>();
     private List<EmployeeAddListener> addListeners = new ArrayList<>();
+    private JComboBox<String> projectComboBox; // 프로젝트 선택을 위한 콤보박스 추가
+    private JButton projectInfoButton; // '프���젝트 정보' 버튼 추가
 
     public interface EmployeeDeleteListener {
         void onDeleteEmployees(List<String> ssnList);
@@ -56,8 +58,9 @@ public class MainView extends JFrame {
         JLabel searchCategoryLabel = new JLabel("검색 범위: ");
         topPanel.add(searchCategoryLabel);
 
+
         // 검색 범위 콤보박스 - "연봉"을 "급여"로 변경
-        String[] searchCategories = {"전체", "부서", "성별", "급여", "그룹별 평균", "직계가족"};
+        String[] searchCategories = {"전체", "부서", "성별", "급여", "그룹별 평균", "직계가족", "프로젝트"};
         searchCategoryComboBox = new JComboBox<>(searchCategories);
         topPanel.add(searchCategoryComboBox);
 
@@ -67,13 +70,18 @@ public class MainView extends JFrame {
         salaryTextField = new JTextField(10);
         String[] groupCategories = {"그룹 없음", "부서", "성별", "상급자"};
         groupByComboBox = new JComboBox<>(groupCategories);
+
         depEmpByComboBox = new JComboBox<>();
+
+        projectComboBox = new JComboBox<>(); // 프로젝트 선택을 위한 콤보박스 추가
+
 
         // 검색 값 패널에 컴포넌트 추가
         searchValuePanel.add(searchValueComboBox, "COMBO");
         searchValuePanel.add(salaryTextField, "SALARY");
         searchValuePanel.add(groupByComboBox, "GROUP");
         searchValuePanel.add(depEmpByComboBox, "FAMILY");
+        searchValuePanel.add(projectComboBox, "PROJECT"); // 프로젝트 선택을 위한 콤보박스 추가
         topPanel.add(searchValuePanel);
 
         // 검색 버튼
@@ -223,15 +231,34 @@ public class MainView extends JFrame {
                 cardLayout.show(tablePanel, "FAMILY");
                 CardLayout cl = (CardLayout) (searchValuePanel.getLayout());
                 cl.show(searchValuePanel, "FAMILY");
-
-            }else {
+            } else if ("프로젝트".equals(selectedCategory)) {
+                cardLayout.show(tablePanel, "EMPLOYEE");
+                updateSearchValues(selectedCategory);
+                CardLayout cl = (CardLayout) (searchValuePanel.getLayout());
+                cl.show(searchValuePanel, "PROJECT");
+            } else {
                 cardLayout.show(tablePanel, "EMPLOYEE");
                 updateSearchValues(selectedCategory);
             }
         });
 
+        // 프로젝트 정보 버튼 생성 및 리스너 추가
+        projectInfoButton = new JButton("프로젝트 정보");
+        projectInfoButton.addActionListener(e -> {
+            ProjectInfoDialog dialog = new ProjectInfoDialog(this);
+            dialog.setVisible(true);
+        });
+
+        // 상단 패널을 포함하는 새로운 패널 생성
+        JPanel northPanel = new JPanel(new BorderLayout());
+        northPanel.add(topPanel, BorderLayout.CENTER);
+        northPanel.add(projectInfoButton, BorderLayout.EAST);
+
+        // 메인 패널에 추가
+        mainPanel.add(northPanel, BorderLayout.NORTH);
+        // ... 기존에 mainPanel.add(topPanel, BorderLayout.NORTH); 부분은 제거하거나 주석 처리합니다.
+        // mainPanel.add(topPanel, BorderLayout.NORTH);
         // 패널 추가
-        mainPanel.add(topPanel, BorderLayout.NORTH);
         mainPanel.add(checkBoxPanel, BorderLayout.CENTER);
         mainPanel.add(tablePanel, BorderLayout.SOUTH);
         add(mainPanel, BorderLayout.CENTER);
@@ -295,6 +322,12 @@ public class MainView extends JFrame {
                 break;
             case "직계가족":
                 cl.show(searchValuePanel, "FAMILY");
+                break;
+            case "프로젝트":
+                projectComboBox.removeAllItems();
+                // 프로젝트 목록을 업데이트하기 위해 리스너에게 요청
+                fireRequestProjectList();
+                cl.show(searchValuePanel, "PROJECT");
                 break;
         }
     }
@@ -376,6 +409,7 @@ public class MainView extends JFrame {
         }
     }
 
+
     public void setFamilyData(List<DependentEmployee> dependentEmployees) {
         familyTableModel.setRowCount(0);
         for ( DependentEmployee depEmp: dependentEmployees) {
@@ -391,6 +425,32 @@ public class MainView extends JFrame {
         }
     }
 
+  // 프로젝트 목록을 요청하는 리스너 인터페이스 및 메소드 추가
+    private List<ProjectListListener> projectListListeners = new ArrayList<>();
 
+    public interface ProjectListListener {
+        void onRequestProjectList();
+    }
 
+    public void addProjectListListener(ProjectListListener listener) {
+        projectListListeners.add(listener);
+    }
+
+    private void fireRequestProjectList() {
+        for (ProjectListListener listener : projectListListeners) {
+            listener.onRequestProjectList();
+        }
+    }
+
+    // 프로젝트 목록을 설정하는 메소드 추가
+    public void setProjectList(List<String> projects) {
+        projectComboBox.removeAllItems();
+        for (String project : projects) {
+            projectComboBox.addItem(project);
+        }
+    }
+
+    public String getSelectedProject() {
+        return (String) projectComboBox.getSelectedItem();
+    }
 }

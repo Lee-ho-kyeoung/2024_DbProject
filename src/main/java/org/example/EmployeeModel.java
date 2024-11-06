@@ -246,6 +246,7 @@ public class EmployeeModel {
         }
     }
 
+
     // 직원 직계가족 검색
     public List<DependentEmployee> getDependentEmployees(String Ssn) {
 
@@ -265,9 +266,46 @@ public class EmployeeModel {
 
         }
 
+    // 프로젝트 목록을 가져오는 메소드 추가
+    public List<String> getProjectList() {
+        List<String> projectList = new ArrayList<>();
+        String query = "SELECT DISTINCT Pname FROM PROJECT";
+
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
             try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD);
+                 Statement statement = connection.createStatement();
+                 ResultSet resultSet = statement.executeQuery(query)) {
+
+                while (resultSet.next()) {
+                    projectList.add(resultSet.getString("Pname"));
+                }
+            }
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(null, "프로젝트 목록을 가져오는 중 오류 발생: " + e.getMessage(),
+                    "Error", JOptionPane.ERROR_MESSAGE);
+        }
+
+        return projectList;
+    }
+
+    // 특정 프로젝트에 참여하는 직원들을 가져오는 메소드 추가
+    public List<Employee> getEmployeesByProject(String projectName) {
+        List<Employee> employees = new ArrayList<>();
+        String query = "SELECT E.Fname, E.Lname, E.SSN, E.Bdate, E.Address, E.Sex, E.Salary, " +
+                "S.Fname AS Supervisor, D.Dname " +
+                "FROM EMPLOYEE E " +
+                "LEFT JOIN EMPLOYEE S ON E.Super_ssn = S.SSN " +
+                "JOIN DEPARTMENT D ON E.Dno = D.Dnumber " +
+                "JOIN WORKS_ON W ON E.SSN = W.Essn " +
+                "JOIN PROJECT P ON W.Pno = P.Pnumber " +
+                "WHERE P.Pname = ?";
+
+
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+            try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD);
+
                  PreparedStatement preparedStatement = connection.prepareStatement(query)) {
 
                 if (!Ssn.equals("전체 조회")) {
@@ -285,10 +323,30 @@ public class EmployeeModel {
                                 resultSet.getString("Relationship")
                         );
                         dependentEmployees.add(dependentEmployee);
+                      
+                 PreparedStatement statement = connection.prepareStatement(query)) {
+
+                statement.setString(1, projectName);
+
+                try (ResultSet resultSet = statement.executeQuery()) {
+                    while (resultSet.next()) {
+                        Employee employee = new Employee(
+                                resultSet.getString("Fname") + " " + resultSet.getString("Lname"),
+                                resultSet.getString("SSN"),
+                                resultSet.getString("Bdate"),
+                                resultSet.getString("Address"),
+                                resultSet.getString("Sex"),
+                                resultSet.getDouble("Salary"),
+                                resultSet.getString("Supervisor"),
+                                resultSet.getString("Dname")
+                        );
+                        employees.add(employee);
+
                     }
                 }
             }
         } catch (Exception e) {
+
             JOptionPane.showMessageDialog(null, "Error: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
 
@@ -318,6 +376,46 @@ public class EmployeeModel {
         }
 
         return EmpSsn;
+
+
+            JOptionPane.showMessageDialog(null, "직원 검색 중 오류가 발생했습니다: " + e.getMessage(),
+                    "Error", JOptionPane.ERROR_MESSAGE);
+        }
+
+        return employees;
+    }
+
+    // 특정 프로젝트의 정보를 가져오는 메소드 추가
+    public ProjectInfo getProjectInfo(String projectName) {
+        String query = "SELECT P.Pname, D.Dname, COUNT(W.Essn) AS EmployeeCount, SUM(W.Hours) AS TotalHours " +
+                "FROM PROJECT P " +
+                "JOIN DEPARTMENT D ON P.Dnum = D.Dnumber " +
+                "LEFT JOIN WORKS_ON W ON P.Pnumber = W.Pno " +
+                "WHERE P.Pname = ? " +
+                "GROUP BY P.Pname, D.Dname";
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+            try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD);
+                 PreparedStatement statement = connection.prepareStatement(query)) {
+
+                statement.setString(1, projectName);
+
+                try (ResultSet resultSet = statement.executeQuery()) {
+                    if (resultSet.next()) {
+                        String pname = resultSet.getString("Pname");
+                        String dname = resultSet.getString("Dname");
+                        int employeeCount = resultSet.getInt("EmployeeCount");
+                        double totalHours = resultSet.getDouble("TotalHours");
+
+                        return new ProjectInfo(pname, dname, employeeCount, totalHours);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(null, "프로젝트 정보 가져오는 중 오류 발생: " + e.getMessage(),
+                    "Error", JOptionPane.ERROR_MESSAGE);
+        }
+        return null;
 
     }
 }
