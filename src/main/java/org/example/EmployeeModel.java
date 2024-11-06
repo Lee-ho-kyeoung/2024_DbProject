@@ -245,4 +245,79 @@ public class EmployeeModel {
             e.printStackTrace();
         }
     }
+
+    // 직원 직계가족 검색
+    public List<DependentEmployee> getDependentEmployees(String Ssn) {
+
+        List<DependentEmployee> dependentEmployees = new ArrayList<>();
+        String query;
+
+        if (Ssn.equals("전체 조회")) {
+            query = "SELECT e.Fname, e.Minit, e.Lname, d.Essn, d.Dependent_name, d.Sex, d.Bdate, d.Relationship " +
+                    "FROM EMPLOYEE e " +
+                    "INNER JOIN DEPENDENT d ON e.Ssn = d.Essn";
+        } else {
+            query = "SELECT e.Fname, e.Minit, e.Lname, d.Essn, d.Dependent_name, d.Sex, d.Bdate, d.Relationship " +
+                    "FROM EMPLOYEE e " +
+                    "INNER JOIN DEPENDENT d ON e.Ssn = d.Essn " +
+                    "WHERE d.Essn = ?";
+
+
+        }
+
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+            try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD);
+                 PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+
+                if (!Ssn.equals("전체 조회")) {
+                    preparedStatement.setString(1, Ssn);
+                }
+
+                try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                    while (resultSet.next()) {
+                        DependentEmployee dependentEmployee = new DependentEmployee(
+                                resultSet.getString("ESSN"),
+                                resultSet.getString("Fname") + " " + resultSet.getString("Minit") + " " + resultSet.getString("Lname"),
+                                resultSet.getString("Dependent_name"),
+                                resultSet.getString("Sex"),
+                                resultSet.getString("Bdate"),
+                                resultSet.getString("Relationship")
+                        );
+                        dependentEmployees.add(dependentEmployee);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(null, "Error: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+
+        return dependentEmployees;
+
+    }
+
+    // 직계가족을 가진 직원의 SSN 리스트
+    public List<String> getHavingDepEmpSsnList() {
+
+        List<String> EmpSsn = new ArrayList<>();
+        String query = "SELECT DISTINCT ESSN FROM DEPENDENT";
+
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+            try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD);
+                 Statement statement = connection.createStatement();
+                 ResultSet resultSet = statement.executeQuery(query)) {
+
+                while (resultSet.next()) {
+                    String essn = resultSet.getString("Essn");
+                    EmpSsn.add(essn);
+                }
+            }
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(null, "Error: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+
+        return EmpSsn;
+
+    }
 }
