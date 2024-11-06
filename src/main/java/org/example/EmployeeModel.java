@@ -311,4 +311,37 @@ public class EmployeeModel {
 
         return employees;
     }
+
+    // 특정 프로젝트의 정보를 가져오는 메소드 추가
+    public ProjectInfo getProjectInfo(String projectName) {
+        String query = "SELECT P.Pname, D.Dname, COUNT(W.Essn) AS EmployeeCount, SUM(W.Hours) AS TotalHours " +
+                "FROM PROJECT P " +
+                "JOIN DEPARTMENT D ON P.Dnum = D.Dnumber " +
+                "LEFT JOIN WORKS_ON W ON P.Pnumber = W.Pno " +
+                "WHERE P.Pname = ? " +
+                "GROUP BY P.Pname, D.Dname";
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+            try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD);
+                 PreparedStatement statement = connection.prepareStatement(query)) {
+
+                statement.setString(1, projectName);
+
+                try (ResultSet resultSet = statement.executeQuery()) {
+                    if (resultSet.next()) {
+                        String pname = resultSet.getString("Pname");
+                        String dname = resultSet.getString("Dname");
+                        int employeeCount = resultSet.getInt("EmployeeCount");
+                        double totalHours = resultSet.getDouble("TotalHours");
+
+                        return new ProjectInfo(pname, dname, employeeCount, totalHours);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(null, "프로젝트 정보 가져오는 중 오류 발생: " + e.getMessage(),
+                    "Error", JOptionPane.ERROR_MESSAGE);
+        }
+        return null;
+    }
 }

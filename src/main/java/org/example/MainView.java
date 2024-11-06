@@ -27,6 +27,7 @@ public class MainView extends JFrame {
     private List<EmployeeDeleteListener> deleteListeners = new ArrayList<>();
     private List<EmployeeAddListener> addListeners = new ArrayList<>();
     private JComboBox<String> projectComboBox; // 프로젝트 선택을 위한 콤보박스 추가
+    private JButton projectInfoButton; // '프���젝트 정보' 버튼 추가
 
     public interface EmployeeDeleteListener {
         void onDeleteEmployees(List<String> ssnList);
@@ -219,8 +220,23 @@ public class MainView extends JFrame {
             }
         });
 
+        // 프로젝트 정보 버튼 생성 및 리스너 추가
+        projectInfoButton = new JButton("프로젝트 정보");
+        projectInfoButton.addActionListener(e -> {
+            ProjectInfoDialog dialog = new ProjectInfoDialog(this);
+            dialog.setVisible(true);
+        });
+
+        // 상단 패널을 포함하는 새로운 패널 생성
+        JPanel northPanel = new JPanel(new BorderLayout());
+        northPanel.add(topPanel, BorderLayout.CENTER);
+        northPanel.add(projectInfoButton, BorderLayout.EAST);
+
+        // 메인 패널에 추가
+        mainPanel.add(northPanel, BorderLayout.NORTH);
+        // ... 기존에 mainPanel.add(topPanel, BorderLayout.NORTH); 부분은 제거하거나 주석 처리합니다.
+        // mainPanel.add(topPanel, BorderLayout.NORTH);
         // 패널 추가
-        mainPanel.add(topPanel, BorderLayout.NORTH);
         mainPanel.add(checkBoxPanel, BorderLayout.CENTER);
         mainPanel.add(tablePanel, BorderLayout.SOUTH);
         add(mainPanel, BorderLayout.CENTER);
