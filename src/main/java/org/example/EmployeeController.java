@@ -12,6 +12,9 @@ public class EmployeeController {
         this.view = view;
 
         this.view.getSearchButton().addActionListener(e -> loadEmployeeData());
+        List<String> essnList = model.getHavingDepEmpSsnList();
+        view.setDepEmpCategories(essnList);
+
 
         // 삭제 이벤트 리스너 추가
         this.view.addDeleteListener(ssnList -> {
@@ -24,6 +27,12 @@ public class EmployeeController {
             model.addEmployee(fname, minit, lname, ssn, bdate, address, sex, salary, superSsn, dno);
             loadEmployeeData(); // 테이블 새로고침
         });
+
+        // 프로젝트 목록 요청 리스너 추가
+        this.view.addProjectListListener(() -> {
+            List<String> projects = model.getProjectList();
+            view.setProjectList(projects);
+        });
     }
 
     private void loadEmployeeData() {
@@ -33,13 +42,20 @@ public class EmployeeController {
             String groupBy = view.getSelectedGroupBy();
             List<AverageSalary> averageSalaries = model.getGroupAverageSalary(groupBy);
             view.setAverageSalaryTableData(averageSalaries);
-        } else {
+        } else if("직계가족".equals(selectedCategory)){
+            String family = view.getSelectedFamily();
+            List<DependentEmployee> dependentEmployees =model.getDependentEmployees(family);
+            view.setFamilyData(dependentEmployees);
+        }else {
             String selectedValue = view.getSelectedValue();
             JCheckBox[] checkBoxes = view.getSearchCheckBoxes();
             List<Employee> employees;
 
             if ("전체".equals(selectedCategory)) {
                 employees = model.getAllEmployees();
+            } else if ("프로젝트".equals(selectedCategory)) {
+                String selectedProject = view.getSelectedProject();
+                employees = model.getEmployeesByProject(selectedProject);
             } else {
                 employees = model.searchEmployees(selectedCategory, selectedValue);
             }
