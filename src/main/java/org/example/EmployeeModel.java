@@ -464,10 +464,11 @@ public class EmployeeModel {
 
     // 특정 프로젝트의 정보를 가져오는 메소드 추가
     public ProjectInfo getProjectInfo(String projectName) {
-        String query = "SELECT P.Pname, D.Dname, COUNT(W.Essn) AS EmployeeCount, SUM(W.Hours) AS TotalHours " +
+        String query = "SELECT P.Pname, D.Dname, COUNT(W.Essn) AS EmployeeCount, SUM(W.Hours) AS TotalHours, AVG(E.Salary) AS ProjectAverageSalary " +
                 "FROM PROJECT P " +
                 "JOIN DEPARTMENT D ON P.Dnum = D.Dnumber " +
                 "LEFT JOIN WORKS_ON W ON P.Pnumber = W.Pno " +
+                "LEFT JOIN EMPLOYEE E ON W.Essn = E.Ssn " +
                 "WHERE P.Pname = ? " +
                 "GROUP BY P.Pname, D.Dname";
         try {
@@ -483,8 +484,9 @@ public class EmployeeModel {
                         String dname = resultSet.getString("Dname");
                         int employeeCount = resultSet.getInt("EmployeeCount");
                         double totalHours = resultSet.getDouble("TotalHours");
+                        double projectAverageSalary = resultSet.getDouble("ProjectAverageSalary");
 
-                        return new ProjectInfo(pname, dname, employeeCount, totalHours);
+                        return new ProjectInfo(pname, dname, employeeCount, totalHours, projectAverageSalary);
                     }
                 }
             }

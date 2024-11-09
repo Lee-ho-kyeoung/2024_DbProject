@@ -8,6 +8,7 @@ public class ProjectInfoDialog extends JDialog {
     private JLabel departmentLabel;
     private JLabel employeeCountLabel;
     private JLabel totalHoursLabel;
+    private JLabel averageSalaryLabel;
     private EmployeeModel model;
 
     public ProjectInfoDialog(Frame owner) {
@@ -30,7 +31,7 @@ public class ProjectInfoDialog extends JDialog {
         projectComboBox.addActionListener(e -> updateProjectInfo());
 
         // 정보 표시 패널
-        JPanel infoPanel = new JPanel(new GridLayout(3, 2));
+        JPanel infoPanel = new JPanel(new GridLayout(4, 2));
         infoPanel.add(new JLabel("관리 부서 이름:"));
         departmentLabel = new JLabel();
         infoPanel.add(departmentLabel);
@@ -40,6 +41,9 @@ public class ProjectInfoDialog extends JDialog {
         infoPanel.add(new JLabel("총 작업 시간:"));
         totalHoursLabel = new JLabel();
         infoPanel.add(totalHoursLabel);
+        infoPanel.add(new JLabel("평균 연봉:"));
+        averageSalaryLabel = new JLabel();
+        infoPanel.add(averageSalaryLabel);
 
         add(projectComboBox, BorderLayout.NORTH);
         add(infoPanel, BorderLayout.CENTER);
@@ -54,10 +58,12 @@ public class ProjectInfoDialog extends JDialog {
             departmentLabel.setText(info.getDepartmentName());
             employeeCountLabel.setText(String.valueOf(info.getEmployeeCount()));
             totalHoursLabel.setText(String.valueOf(info.getTotalHours()));
+            averageSalaryLabel.setText(String.valueOf(info.getProjectAverageSalary()));
         } else {
             departmentLabel.setText("N/A");
             employeeCountLabel.setText("0");
             totalHoursLabel.setText("0.0");
+            averageSalaryLabel.setText("0.0");
         }
     }
 }
