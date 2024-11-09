@@ -15,6 +15,20 @@ public class EmployeeController {
         List<String> essnList = model.getHavingDepEmpSsnList();
         view.setDepEmpCategories(essnList);
 
+        // 수정 이벤트 리스너 추가
+        this.view.addEmployeeEditListener((originalSsn, fname, minit, lname, ssn, bdate,
+                                           address, sex, salary, superSsn, dno) -> {
+            try {
+                model.updateEmployee(originalSsn, fname, minit, lname, ssn, bdate,
+                        address, sex, salary, superSsn, dno);
+                loadEmployeeData(); // 테이블 새로고침
+            } catch (IllegalArgumentException ex) {
+                JOptionPane.showMessageDialog(view,
+                        ex.getMessage(),
+                        "수정 오류",
+                        JOptionPane.ERROR_MESSAGE);
+            }
+        });
 
         // 삭제 이벤트 리스너 추가
         this.view.addDeleteListener(ssnList -> {
@@ -44,9 +58,9 @@ public class EmployeeController {
             view.setAverageSalaryTableData(averageSalaries);
         } else if("직계가족".equals(selectedCategory)){
             String family = view.getSelectedFamily();
-            List<DependentEmployee> dependentEmployees =model.getDependentEmployees(family);
+            List<DependentEmployee> dependentEmployees = model.getDependentEmployees(family);
             view.setFamilyData(dependentEmployees);
-        }else {
+        } else {
             String selectedValue = view.getSelectedValue();
             JCheckBox[] checkBoxes = view.getSearchCheckBoxes();
             List<Employee> employees;

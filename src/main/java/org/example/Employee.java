@@ -9,8 +9,10 @@ public class Employee {
     private double salary;
     private String supervisor;
     private String department;
+    private int dno; // 추가된 필드
 
-    public Employee(String name, String ssn, String birthDate, String address, String sex, double salary, String supervisor, String department) {
+    public Employee(String name, String ssn, String birthDate, String address,
+                    String sex, double salary, String supervisor, String department, int dno) {
         this.name = name;
         this.ssn = ssn;
         this.birthDate = birthDate;
@@ -19,9 +21,10 @@ public class Employee {
         this.salary = salary;
         this.supervisor = supervisor;
         this.department = department;
+        this.dno = dno;
     }
 
-    // Getters
+    // 기존 getter 메소드들...
     public String getName() { return name; }
     public String getSsn() { return ssn; }
     public String getBirthDate() { return birthDate; }
@@ -30,4 +33,5 @@ public class Employee {
     public double getSalary() { return salary; }
     public String getSupervisor() { return supervisor; }
     public String getDepartment() { return department; }
+    public int getDno() { return dno; } // 새로운 getter
 }

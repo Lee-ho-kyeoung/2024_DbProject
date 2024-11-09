@@ -30,8 +30,10 @@ public class MainView extends JFrame {
     private JPanel tablePanel;
     private List<EmployeeDeleteListener> deleteListeners = new ArrayList<>();
     private List<EmployeeAddListener> addListeners = new ArrayList<>();
-    private JComboBox<String> projectComboBox; // 프로젝트 선택을 위한 콤보박스 추가
-    private JButton projectInfoButton; // '프���젝트 정보' 버튼 추가
+    private List<EmployeeEditListener> editListeners = new ArrayList<>();
+    private JComboBox<String> projectComboBox;
+    private JButton projectInfoButton;
+    private JPanel checkBoxPanel;
 
     public interface EmployeeDeleteListener {
         void onDeleteEmployees(List<String> ssnList);
@@ -41,6 +43,22 @@ public class MainView extends JFrame {
         void onAddEmployee(String fname, String minit, String lname, String ssn,
                            String bdate, String address, String sex,
                            double salary, String superSsn, int dno);
+    }
+
+    public interface EmployeeEditListener {
+        void onEditEmployee(String originalSsn, String fname, String minit, String lname,
+                            String ssn, String bdate, String address, String sex,
+                            double salary, String superSsn, int dno);
+    }
+
+    // getDepartmentNumber 메소드를 클래스 레벨로 이동
+    private int getDepartmentNumber(String departmentName) {
+        switch(departmentName) {
+            case "Research": return 5;
+            case "Administration": return 4;
+            case "Headquarters": return 1;
+            default: return 1; // 기본값
+        }
     }
 
     public MainView() {
@@ -58,8 +76,7 @@ public class MainView extends JFrame {
         JLabel searchCategoryLabel = new JLabel("검색 범위: ");
         topPanel.add(searchCategoryLabel);
 
-
-        // 검색 범위 콤보박스 - "연봉"을 "급여"로 변경
+        // 검색 범위 콤보박스
         String[] searchCategories = {"전체", "부서", "성별", "급여", "그룹별 평균", "직계가족", "프로젝트"};
         searchCategoryComboBox = new JComboBox<>(searchCategories);
         topPanel.add(searchCategoryComboBox);
@@ -72,16 +89,14 @@ public class MainView extends JFrame {
         groupByComboBox = new JComboBox<>(groupCategories);
 
         depEmpByComboBox = new JComboBox<>();
-
-        projectComboBox = new JComboBox<>(); // 프로젝트 선택을 위한 콤보박스 추가
-
+        projectComboBox = new JComboBox<>();
 
         // 검색 값 패널에 컴포넌트 추가
         searchValuePanel.add(searchValueComboBox, "COMBO");
         searchValuePanel.add(salaryTextField, "SALARY");
         searchValuePanel.add(groupByComboBox, "GROUP");
         searchValuePanel.add(depEmpByComboBox, "FAMILY");
-        searchValuePanel.add(projectComboBox, "PROJECT"); // 프로젝트 선택을 위한 콤보박스 추가
+        searchValuePanel.add(projectComboBox, "PROJECT");
         topPanel.add(searchValuePanel);
 
         // 검색 버튼
@@ -89,7 +104,7 @@ public class MainView extends JFrame {
         topPanel.add(searchButton);
 
         // 체크박스 패널
-        JPanel checkBoxPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        checkBoxPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         JLabel searchFieldsLabel = new JLabel("검색 항목: ");
         checkBoxPanel.add(searchFieldsLabel);
 
@@ -100,7 +115,6 @@ public class MainView extends JFrame {
             searchCheckBoxes[i].setSelected(true);
             checkBoxPanel.add(searchCheckBoxes[i]);
         }
-
 
         // 테이블 패널
         tablePanel = new JPanel(new CardLayout());
@@ -128,15 +142,15 @@ public class MainView extends JFrame {
         averageSalaryTable = new JTable(averageSalaryTableModel);
         averageSalaryScrollPane = new JScrollPane(averageSalaryTable);
 
-        // 테이블 패널에 추가
-        tablePanel.add(employeeScrollPane, "EMPLOYEE");
-        tablePanel.add(averageSalaryScrollPane, "AVERAGE");
-
         // 직계가족 테이블 설정
-        String[] familyColumns = {"ESSN","NAME", "DEPNAME", "SEX", "BDATE", "RELATION"};
+        String[] familyColumns = {"ESSN", "NAME", "DEPNAME", "SEX", "BDATE", "RELATION"};
         familyTableModel = new DefaultTableModel(familyColumns, 0);
         familyTable = new JTable(familyTableModel);
         familyScrollPane = new JScrollPane(familyTable);
+
+        // 테이블 패널에 추가
+        tablePanel.add(employeeScrollPane, "EMPLOYEE");
+        tablePanel.add(averageSalaryScrollPane, "AVERAGE");
         tablePanel.add(familyScrollPane, "FAMILY");
 
         // 하단 패널
@@ -152,6 +166,91 @@ public class MainView extends JFrame {
 
         // 버튼 패널
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+
+        // 수정 버튼
+        JButton editButton = new JButton("선택한 직원 수정");
+        editButton.addActionListener(e -> {
+            // SSN과 Name 체크박스의 상태 확인
+            boolean isSsnChecked = searchCheckBoxes[1].isSelected(); // SSN은 두 번째 체크박스
+            boolean isNameChecked = searchCheckBoxes[0].isSelected(); // Name은 첫 번째 체크박스
+
+            if (!isSsnChecked || !isNameChecked) {
+                JOptionPane.showMessageDialog(this,
+                        "직원 수정을 위해서는 Name과 SSN 항목이 선택되어야 합니다.",
+                        "선택 항목 오류",
+                        JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            int selectedCount = 0;
+            Employee selectedEmployee = null;
+            int selectedRow = -1;
+
+            for (int i = 0; i < tableModel.getRowCount(); i++) {
+                Boolean isSelected = (Boolean) tableModel.getValueAt(i, 0);
+                if (isSelected != null && isSelected) {
+                    selectedCount++;
+                    selectedRow = i;
+                }
+            }
+
+            if (selectedCount == 0) {
+                JOptionPane.showMessageDialog(this,
+                        "수정할 직원을 선택해주세요.",
+                        "선택 오류",
+                        JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            if (selectedCount > 1) {
+                JOptionPane.showMessageDialog(this,
+                        "한 번에 한 명의 직원만 수정할 수 있습니다.",
+                        "선택 오류",
+                        JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            // 선택된 직원의 정보로 Employee 객체 생성
+            selectedEmployee = new Employee(
+                    (String) tableModel.getValueAt(selectedRow, 1),  // name
+                    (String) tableModel.getValueAt(selectedRow, 2),  // ssn
+                    (String) tableModel.getValueAt(selectedRow, 3),  // birthDate
+                    (String) tableModel.getValueAt(selectedRow, 4),  // address
+                    (String) tableModel.getValueAt(selectedRow, 5),  // sex
+                    Double.parseDouble((String) tableModel.getValueAt(selectedRow, 6)),  // salary
+                    (String) tableModel.getValueAt(selectedRow, 7),  // supervisor
+                    (String) tableModel.getValueAt(selectedRow, 8),  // department
+                    getDepartmentNumber((String) tableModel.getValueAt(selectedRow, 8))  // department name으로 dno 가져오기
+            );
+
+            // 수정 다이얼로그 표시
+            EditEmployeeDialog dialog = new EditEmployeeDialog(this, selectedEmployee);
+            dialog.setVisible(true);
+
+            if (dialog.isConfirmed()) {
+                try {
+                    fireEditEmployee(
+                            dialog.getOriginalSsn(),
+                            dialog.getFname(),
+                            dialog.getMinit(),
+                            dialog.getLname(),
+                            dialog.getSsn(),
+                            dialog.getBdate(),
+                            dialog.getAddress(),
+                            dialog.getSex(),
+                            dialog.getSalary(),
+                            dialog.getSuperSsn(),
+                            dialog.getDno()
+                    );
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(this,
+                            "직원 수정 중 오류가 발생했습니다: " + ex.getMessage(),
+                            "오류",
+                            JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
+        buttonPanel.add(editButton);
 
         // 추가 버튼
         JButton addButton = new JButton("직원 추가");
@@ -186,6 +285,18 @@ public class MainView extends JFrame {
         // 삭제 버튼
         JButton deleteButton = new JButton("선택한 데이터 삭제");
         deleteButton.addActionListener(e -> {
+            // SSN과 Name 체크박스의 상태 확인
+            boolean isSsnChecked = searchCheckBoxes[1].isSelected(); // SSN은 두 번째 체크박스
+            boolean isNameChecked = searchCheckBoxes[0].isSelected(); // Name은 첫 번째 체크박스
+
+            if (!isSsnChecked || !isNameChecked) {
+                JOptionPane.showMessageDialog(this,
+                        "직원 삭제를 위해서는 Name과 SSN 항목이 선택되어야 합니다.",
+                        "선택 항목 오류",
+                        JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
             int selectedCount = 0;
             List<String> selectedSSNs = new ArrayList<>();
 
@@ -219,7 +330,6 @@ public class MainView extends JFrame {
 
         // 테이블 선택 리스너
         employeeTable.getModel().addTableModelListener(e -> updateSelectedEmployeeInfo());
-
         // 카테고리 변경 리스너
         searchCategoryComboBox.addActionListener(e -> {
             String selectedCategory = (String) searchCategoryComboBox.getSelectedItem();
@@ -227,22 +337,26 @@ public class MainView extends JFrame {
                 cardLayout.show(tablePanel, "AVERAGE");
                 CardLayout cl = (CardLayout) (searchValuePanel.getLayout());
                 cl.show(searchValuePanel, "GROUP");
-            } else if("직계가족".equals(selectedCategory)) {
+                checkBoxPanel.setVisible(false);
+            } else if ("직계가족".equals(selectedCategory)) {
                 cardLayout.show(tablePanel, "FAMILY");
                 CardLayout cl = (CardLayout) (searchValuePanel.getLayout());
                 cl.show(searchValuePanel, "FAMILY");
+                checkBoxPanel.setVisible(false);
             } else if ("프로젝트".equals(selectedCategory)) {
                 cardLayout.show(tablePanel, "EMPLOYEE");
                 updateSearchValues(selectedCategory);
                 CardLayout cl = (CardLayout) (searchValuePanel.getLayout());
                 cl.show(searchValuePanel, "PROJECT");
+                checkBoxPanel.setVisible(true);
             } else {
                 cardLayout.show(tablePanel, "EMPLOYEE");
                 updateSearchValues(selectedCategory);
+                checkBoxPanel.setVisible(true);
             }
         });
 
-        // 프로젝트 정보 버튼 생성 및 리스너 추가
+        // 프로젝트 정보 버튼
         projectInfoButton = new JButton("프로젝트 정보");
         projectInfoButton.addActionListener(e -> {
             ProjectInfoDialog dialog = new ProjectInfoDialog(this);
@@ -256,9 +370,6 @@ public class MainView extends JFrame {
 
         // 메인 패널에 추가
         mainPanel.add(northPanel, BorderLayout.NORTH);
-        // ... 기존에 mainPanel.add(topPanel, BorderLayout.NORTH); 부분은 제거하거나 주석 처리합니다.
-        // mainPanel.add(topPanel, BorderLayout.NORTH);
-        // 패널 추가
         mainPanel.add(checkBoxPanel, BorderLayout.CENTER);
         mainPanel.add(tablePanel, BorderLayout.SOUTH);
         add(mainPanel, BorderLayout.CENTER);
@@ -275,6 +386,10 @@ public class MainView extends JFrame {
         addListeners.add(listener);
     }
 
+    public void addEmployeeEditListener(EmployeeEditListener listener) {
+        editListeners.add(listener);
+    }
+
     private void fireDeleteEmployees(List<String> ssnList) {
         for (EmployeeDeleteListener listener : deleteListeners) {
             listener.onDeleteEmployees(ssnList);
@@ -286,6 +401,15 @@ public class MainView extends JFrame {
                                  double salary, String superSsn, int dno) {
         for (EmployeeAddListener listener : addListeners) {
             listener.onAddEmployee(fname, minit, lname, ssn, bdate, address, sex, salary, superSsn, dno);
+        }
+    }
+
+    private void fireEditEmployee(String originalSsn, String fname, String minit, String lname,
+                                  String ssn, String bdate, String address, String sex,
+                                  double salary, String superSsn, int dno) {
+        for (EmployeeEditListener listener : editListeners) {
+            listener.onEditEmployee(originalSsn, fname, minit, lname, ssn, bdate,
+                    address, sex, salary, superSsn, dno);
         }
     }
 
@@ -325,13 +449,11 @@ public class MainView extends JFrame {
                 break;
             case "프로젝트":
                 projectComboBox.removeAllItems();
-                // 프로젝트 목록을 업데이트하기 위해 리스너에게 요청
                 fireRequestProjectList();
                 cl.show(searchValuePanel, "PROJECT");
                 break;
         }
     }
-
 
     public void updateSelectedEmployeeInfo() {
         StringBuilder selectedNames = new StringBuilder();
@@ -371,10 +493,9 @@ public class MainView extends JFrame {
         return (String) groupByComboBox.getSelectedItem();
     }
 
-    public String getSelectedFamily(){
+    public String getSelectedFamily() {
         return (String) depEmpByComboBox.getSelectedItem();
     }
-
 
     public JCheckBox[] getSearchCheckBoxes() {
         return searchCheckBoxes;
@@ -409,23 +530,29 @@ public class MainView extends JFrame {
         }
     }
 
-
     public void setFamilyData(List<DependentEmployee> dependentEmployees) {
         familyTableModel.setRowCount(0);
-        for ( DependentEmployee depEmp: dependentEmployees) {
-            Object[] row = {depEmp.getEssn(), depEmp.getEmpName(), depEmp.getDepName(), depEmp.getSex(), depEmp.getBirthDate(), depEmp.getRelationship()};
+        for (DependentEmployee depEmp : dependentEmployees) {
+            Object[] row = {
+                    depEmp.getEssn(),
+                    depEmp.getEmpName(),
+                    depEmp.getDepName(),
+                    depEmp.getSex(),
+                    depEmp.getBirthDate(),
+                    depEmp.getRelationship()
+            };
             familyTableModel.addRow(row);
         }
     }
 
     public void setDepEmpCategories(List<String> ssnList) {
+        depEmpByComboBox.removeAllItems();
         depEmpByComboBox.addItem("전체 조회");
         for (String ssn : ssnList) {
             depEmpByComboBox.addItem(ssn);
         }
     }
 
-    // 프로젝트 목록을 요청하는 리스너 인터페이스 및 메소드 추가
     private List<ProjectListListener> projectListListeners = new ArrayList<>();
 
     public interface ProjectListListener {
@@ -442,7 +569,6 @@ public class MainView extends JFrame {
         }
     }
 
-    // 프로젝트 목록을 설정하는 메소드 추가
     public void setProjectList(List<String> projects) {
         projectComboBox.removeAllItems();
         for (String project : projects) {

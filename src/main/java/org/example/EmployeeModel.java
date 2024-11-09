@@ -14,6 +14,80 @@ public class EmployeeModel {
     private static final String USER = dotenv.get("DB_USER");
     private static final String PASSWORD = dotenv.get("DB_PASSWORD");
 
+    // SSN 존재 여부 확인 메소드
+    public boolean isSSNExists(String ssn, String originalSsn) {
+        if (ssn.equals(originalSsn)) {
+            return false; // 자기 자신의 SSN인 경우는 중복으로 처리하지 않음
+        }
+
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+            try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD);
+                 PreparedStatement statement = connection.prepareStatement(
+                         "SELECT COUNT(*) FROM EMPLOYEE WHERE SSN = ?")) {
+
+                statement.setString(1, ssn);
+                try (ResultSet resultSet = statement.executeQuery()) {
+                    if (resultSet.next()) {
+                        return resultSet.getInt(1) > 0;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    // 직원 정보 수정 메소드
+    public void updateEmployee(String originalSsn, String fname, String minit, String lname,
+                               String ssn, String bdate, String address, String sex,
+                               double salary, String superSsn, int dno) {
+
+        // SSN 중복 체크
+        if (isSSNExists(ssn, originalSsn)) {
+            throw new IllegalArgumentException("이미 존재하는 SSN입니다.");
+        }
+
+        String query = "UPDATE EMPLOYEE SET Fname=?, Minit=?, Lname=?, SSN=?, Bdate=?, " +
+                "Address=?, Sex=?, Salary=?, Super_ssn=?, Dno=? WHERE SSN=?";
+
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+            try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD);
+                 PreparedStatement statement = connection.prepareStatement(query)) {
+
+                statement.setString(1, fname);
+                statement.setString(2, minit);
+                statement.setString(3, lname);
+                statement.setString(4, ssn);
+                statement.setString(5, bdate);
+                statement.setString(6, address);
+                statement.setString(7, sex);
+                statement.setDouble(8, salary);
+                if (superSsn != null && !superSsn.trim().isEmpty()) {
+                    statement.setString(9, superSsn);
+                } else {
+                    statement.setNull(9, Types.VARCHAR);
+                }
+                statement.setInt(10, dno);
+                statement.setString(11, originalSsn);
+
+                statement.executeUpdate();
+                JOptionPane.showMessageDialog(null,
+                        "직원 정보가 성공적으로 수정되었습니다.",
+                        "수정 완료",
+                        JOptionPane.INFORMATION_MESSAGE);
+            }
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(null,
+                    "직원 정보 수정 중 오류가 발생했습니다: " + e.getMessage(),
+                    "Error",
+                    JOptionPane.ERROR_MESSAGE);
+            e.printStackTrace();
+        }
+    }
+
     // 모든 직원 검색
     public List<Employee> getAllEmployees() {
         List<Employee> employees = new ArrayList<>();
@@ -23,33 +97,37 @@ public class EmployeeModel {
             try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD);
                  Statement statement = connection.createStatement();
                  ResultSet resultSet = statement.executeQuery(
-                         "SELECT E.Fname, E.Lname, E.SSN, E.Bdate, E.Address, E.Sex, E.Salary, " +
-                                 "S.Fname AS Supervisor, D.Dname " +
+                         "SELECT E.Fname, E.Minit, E.Lname, E.SSN, E.Bdate, E.Address, E.Sex, E.Salary, " +
+                                 "S.Fname AS Supervisor, D.Dname, E.Dno " +  // Dno 추가
                                  "FROM EMPLOYEE E " +
                                  "LEFT JOIN EMPLOYEE S ON E.Super_ssn = S.SSN " +
                                  "JOIN DEPARTMENT D ON E.Dno = D.Dnumber")) {
 
                 while (resultSet.next()) {
+                    String name = resultSet.getString("Fname");
+                    if (resultSet.getString("Minit") != null) {
+                        name += " " + resultSet.getString("Minit");
+                    }
+                    name += " " + resultSet.getString("Lname");
+
                     Employee employee = new Employee(
-                            resultSet.getString("Fname") + " " + resultSet.getString("Lname"),
+                            name,
                             resultSet.getString("SSN"),
                             resultSet.getString("Bdate"),
                             resultSet.getString("Address"),
                             resultSet.getString("Sex"),
                             resultSet.getDouble("Salary"),
                             resultSet.getString("Supervisor"),
-                            resultSet.getString("Dname")
+                            resultSet.getString("Dname"),
+                            resultSet.getInt("Dno")  // Dno 추가
                     );
                     employees.add(employee);
                 }
             }
-        } catch (ClassNotFoundException e) {
-            JOptionPane.showMessageDialog(null, "MySQL JDBC Driver not found: " + e.getMessage(),
-                    "Driver Error", JOptionPane.ERROR_MESSAGE);
-        } catch (SQLException e) {
-            JOptionPane.showMessageDialog(null, "Database connection error: " + e.getMessage(),
-                    "SQL Error", JOptionPane.ERROR_MESSAGE);
+        } catch (Exception e) {
             e.printStackTrace();
+            JOptionPane.showMessageDialog(null, "데이터베이스 오류: " + e.getMessage(),
+                    "Error", JOptionPane.ERROR_MESSAGE);
         }
 
         return employees;
@@ -109,7 +187,8 @@ public class EmployeeModel {
                                 resultSet.getString("Sex"),
                                 resultSet.getDouble("Salary"),
                                 resultSet.getString("Supervisor"),
-                                resultSet.getString("Dname")
+                                resultSet.getString("Dname"),
+                                resultSet.getInt("Dno")  // Dno 추가
                         );
                         employees.add(employee);
                     }
@@ -345,7 +424,8 @@ public class EmployeeModel {
                                 resultSet.getString("Sex"),
                                 resultSet.getDouble("Salary"),
                                 resultSet.getString("Supervisor"),
-                                resultSet.getString("Dname")
+                                resultSet.getString("Dname"),
+                                resultSet.getInt("Dno")  // Dno 추가
                         );
                         employees.add(employee);
                     }
