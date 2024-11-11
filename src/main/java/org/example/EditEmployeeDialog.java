@@ -36,36 +36,28 @@ public class EditEmployeeDialog extends JDialog {
         gbc.insets = new Insets(5, 5, 5, 5);
 
         // 필드 초기화
-        String[] nameParts = employee.getName().split(" ");
         fnameField = new JTextField(15);
-        fnameField.setText(nameParts[0]);
-
         minitField = new JTextField(2);
-        minitField.setText(nameParts.length > 1 ? nameParts[1] : "");
-
         lnameField = new JTextField(15);
-        lnameField.setText(nameParts.length > 2 ? nameParts[2] : "");
-
         ssnField = new JTextField(15);
+        bdateField = new JTextField(15);
+        addressField = new JTextField(20);
+        sexComboBox = new JComboBox<>(new String[]{"M", "F"});
+        salaryField = new JTextField(10);
+        superSsnField = new JTextField(15);
+        dnoField = new JTextField(5);
+
+        // 값 설정
+        fnameField.setText(employee.getFname());
+        minitField.setText(employee.getMinit());
+        lnameField.setText(employee.getLname());
         ssnField.setText(employee.getSsn());
         ssnField.setEditable(false);
-
-        bdateField = new JTextField(15);
         bdateField.setText(employee.getBirthDate());
-
-        addressField = new JTextField(20);
         addressField.setText(employee.getAddress());
-
-        sexComboBox = new JComboBox<>(new String[]{"M", "F"});
         sexComboBox.setSelectedItem(employee.getSex());
-
-        salaryField = new JTextField(10);
         salaryField.setText(String.valueOf(employee.getSalary()));
-
-        superSsnField = new JTextField(15);
-        superSsnField.setText(employee.getSupervisor() != null ? employee.getSupervisor() : "");
-
-        dnoField = new JTextField(5);
+        superSsnField.setText(employee.getSupervisor());
         dnoField.setText(String.valueOf(employee.getDno()));
 
         // Last Modified 라벨 추가
@@ -127,9 +119,9 @@ public class EditEmployeeDialog extends JDialog {
 
         // Last Modified 라벨 추가
         gbc.gridx = 0; gbc.gridy = gridy++;
-        gbc.gridwidth = 2; // 두 칸을 차지하도록 설정
+        gbc.gridwidth = 2;
         inputPanel.add(lastModifiedLabel, gbc);
-        gbc.gridwidth = 1; // 원래대로 복구
+        gbc.gridwidth = 1;
 
         // 버튼 패널
         JPanel buttonPanel = new JPanel();

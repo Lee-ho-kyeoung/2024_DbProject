@@ -38,9 +38,7 @@ public class EmployeeModel {
         }
     }
 
-    // SSN 존재 여부 확인 메소드
     public boolean isSSNExists(String ssn) {
-
         String query = "SELECT COUNT(*) FROM EMPLOYEE WHERE SSN = ?";
         try (PreparedStatement statement = connection.prepareStatement(query)) {
             statement.setString(1, ssn);
@@ -55,9 +53,7 @@ public class EmployeeModel {
         return false;
     }
 
-    // Department 존재 여부 확인 메소드
     public boolean isDeptExists(int Dno) {
-
         String query = "SELECT EXISTS (SELECT 1 FROM Department WHERE Dnumber = ?) AS DeptExists";
         try (PreparedStatement statement = connection.prepareStatement(query)) {
             statement.setInt(1, Dno);
@@ -72,29 +68,17 @@ public class EmployeeModel {
         return false;
     }
 
-
-
-    // 직원 정보 수정
     public void updateEmployee(String originalSsn, String fname, String minit, String lname,
                                String ssn, String bdate, String address, String sex,
                                double salary, String superSsn, int dno) {
-
-//        // SSN 중복 체크
-//        if (isSSNExists(ssn, originalSsn)) {
-//            throw new IllegalArgumentException("이미 존재하는 SSN입니다.");
-//        }
-
-        // super_ssn과 ssn 동일하게 불가능
         if (superSsn.equals(ssn)) {
             throw new IllegalArgumentException("자기 자신을 상사의 SSN으로 설정할 수 없습니다.");
         }
 
-        // super_ssn 존재 여부 확인
-        if (!isSSNExists(superSsn)) {
+        if (!superSsn.isEmpty() && !isSSNExists(superSsn)) {
             throw new IllegalArgumentException("유효하지 않은 SSN입니다. 상사의 SSN을 확인해주세요.");
         }
 
-        // bdate String을 java.sql.Date로 변환
         Date BDate = null;
         try {
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
@@ -109,7 +93,8 @@ public class EmployeeModel {
         }
 
         String query = "UPDATE EMPLOYEE SET Fname=?, Minit=?, Lname=?, SSN=?, Bdate=?, " +
-                "Address=?, Sex=?, Salary=?, Super_ssn=?, Dno=? WHERE SSN=?";
+                "Address=?, Sex=?, Salary=?, Super_ssn=?, Dno=?, Last_Modified=CURRENT_TIMESTAMP " +
+                "WHERE SSN=?";
 
         try (PreparedStatement statement = connection.prepareStatement(query)) {
             statement.setString(1, fname);
@@ -142,11 +127,10 @@ public class EmployeeModel {
         }
     }
 
-    // 모든 직원 검색
     public List<Employee> getAllEmployees() {
         List<Employee> employees = new ArrayList<>();
         String query = "SELECT E.Fname, E.Minit, E.Lname, E.SSN, E.Bdate, E.Address, E.Sex, E.Salary, " +
-                "S.Fname AS Supervisor, D.Dname, E.Dno, E.Last_Modified " +  // Last_Modified 추가
+                "E.Super_ssn AS Supervisor, D.Dname, E.Dno, E.Last_Modified " +
                 "FROM EMPLOYEE E " +
                 "LEFT JOIN EMPLOYEE S ON E.Super_ssn = S.SSN " +
                 "JOIN DEPARTMENT D ON E.Dno = D.Dnumber";
@@ -155,14 +139,21 @@ public class EmployeeModel {
              ResultSet resultSet = statement.executeQuery(query)) {
 
             while (resultSet.next()) {
-                String name = resultSet.getString("Fname");
-                if (resultSet.getString("Minit") != null) {
-                    name += " " + resultSet.getString("Minit");
+                String fname = resultSet.getString("Fname");
+                String minit = resultSet.getString("Minit");
+                String lname = resultSet.getString("Lname");
+
+                // 전체 이름 조합
+                String fullName = fname;
+                if (minit != null && !minit.trim().isEmpty()) {
+                    fullName += " " + minit;
                 }
-                name += " " + resultSet.getString("Lname");
+                if (lname != null && !lname.trim().isEmpty()) {
+                    fullName += " " + lname;
+                }
 
                 Employee employee = new Employee(
-                        name,
+                        fullName,
                         resultSet.getString("SSN"),
                         resultSet.getDate("Bdate"),
                         resultSet.getString("Address"),
@@ -171,7 +162,7 @@ public class EmployeeModel {
                         resultSet.getString("Supervisor"),
                         resultSet.getString("Dname"),
                         resultSet.getInt("Dno"),
-                        resultSet.getTimestamp("Last_Modified")  // Last_Modified 추가
+                        resultSet.getTimestamp("Last_Modified")
                 );
                 employees.add(employee);
             }
@@ -184,11 +175,10 @@ public class EmployeeModel {
         return employees;
     }
 
-    // 특정 직원 검색
     public List<Employee> searchEmployees(String category, String value) {
         List<Employee> employees = new ArrayList<>();
-        String query = "SELECT E.Fname, E.Lname, E.SSN, E.Bdate, E.Address, E.Sex, E.Salary, " +
-                "S.Fname AS Supervisor, D.Dname, E.Dno, E.Last_Modified " +
+        String query = "SELECT E.Fname, E.Minit, E.Lname, E.SSN, E.Bdate, E.Address, E.Sex, E.Salary, " +
+                "E.Super_ssn AS Supervisor, D.Dname, E.Dno, E.Last_Modified " +
                 "FROM EMPLOYEE E " +
                 "LEFT JOIN EMPLOYEE S ON E.Super_ssn = S.SSN " +
                 "JOIN DEPARTMENT D ON E.Dno = D.Dnumber WHERE ";
@@ -219,8 +209,21 @@ public class EmployeeModel {
 
             try (ResultSet resultSet = statement.executeQuery()) {
                 while (resultSet.next()) {
+                    String fname = resultSet.getString("Fname");
+                    String minit = resultSet.getString("Minit");
+                    String lname = resultSet.getString("Lname");
+
+                    // 전체 이름 조합
+                    String fullName = fname;
+                    if (minit != null && !minit.trim().isEmpty()) {
+                        fullName += " " + minit;
+                    }
+                    if (lname != null && !lname.trim().isEmpty()) {
+                        fullName += " " + lname;
+                    }
+
                     Employee employee = new Employee(
-                            resultSet.getString("Fname") + " " + resultSet.getString("Lname"),
+                            fullName,
                             resultSet.getString("SSN"),
                             resultSet.getDate("Bdate"),
                             resultSet.getString("Address"),
@@ -241,7 +244,59 @@ public class EmployeeModel {
         return employees;
     }
 
-    // 그룹의 평균 급여
+    public List<Employee> getEmployeesByProject(String projectName) {
+        List<Employee> employees = new ArrayList<>();
+        String query = "SELECT E.Fname, E.Minit, E.Lname, E.SSN, E.Bdate, E.Address, E.Sex, E.Salary, " +
+                "E.Super_ssn AS Supervisor, D.Dname, E.Dno, E.Last_Modified " +
+                "FROM EMPLOYEE E " +
+                "LEFT JOIN EMPLOYEE S ON E.Super_ssn = S.SSN " +
+                "JOIN DEPARTMENT D ON E.Dno = D.Dnumber " +
+                "JOIN WORKS_ON W ON E.SSN = W.Essn " +
+                "JOIN PROJECT P ON W.Pno = P.Pnumber " +
+                "WHERE P.Pname = ?";
+
+        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+            preparedStatement.setString(1, projectName);
+
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                while (resultSet.next()) {
+                    String fname = resultSet.getString("Fname");
+                    String minit = resultSet.getString("Minit");
+                    String lname = resultSet.getString("Lname");
+
+                    // 전체 이름 조합
+                    String fullName = fname;
+                    if (minit != null && !minit.trim().isEmpty()) {
+                        fullName += " " + minit;
+                    }
+                    if (lname != null && !lname.trim().isEmpty()) {
+                        fullName += " " + lname;
+                    }
+
+                    Employee employee = new Employee(
+                            fullName,
+                            resultSet.getString("SSN"),
+                            resultSet.getDate("Bdate"),
+                            resultSet.getString("Address"),
+                            resultSet.getString("Sex"),
+                            resultSet.getDouble("Salary"),
+                            resultSet.getString("Supervisor"),
+                            resultSet.getString("Dname"),
+                            resultSet.getInt("Dno"),
+                            resultSet.getTimestamp("Last_Modified")
+                    );
+                    employees.add(employee);
+                }
+            }
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(null, "Error: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+
+        return employees;
+    }
+
+    // ... (나머지 메서드들은 동일하게 유지)
+
     public List<AverageSalary> getGroupAverageSalary(String groupBy) {
         List<AverageSalary> result = new ArrayList<>();
         String query = switch (groupBy) {
@@ -269,7 +324,6 @@ public class EmployeeModel {
         return result;
     }
 
-    //직원 삭제
     public void deleteEmployees(List<String> ssnList) {
         String query = "DELETE FROM EMPLOYEE WHERE SSN IN (" +
                 String.join(",", Collections.nCopies(ssnList.size(), "?")) + ")";
@@ -300,20 +354,17 @@ public class EmployeeModel {
         }
     }
 
-    // 직원 추가
     public void addEmployee(String fname, String minit, String lname, String ssn, String bdate,
                             String address, String sex, double salary, String superSsn, int dno) {
         if (ssn == null || ssn.trim().isEmpty()) {
             throw new IllegalArgumentException("SSN은 필수 입력 항목입니다.");
         }
 
-        // super_ssn과 ssn 동일하게 불가능
-        if (superSsn.equals(ssn)) {
+        if (superSsn != null && !superSsn.trim().isEmpty() && superSsn.equals(ssn)) {
             throw new IllegalArgumentException("자기 자신을 상사의 SSN으로 설정할 수 없습니다.");
         }
 
-        // super_ssn 존재 여부 확인
-        if (!isSSNExists(superSsn)) {
+        if (superSsn != null && !superSsn.trim().isEmpty() && !isSSNExists(superSsn)) {
             throw new IllegalArgumentException("유효하지 않은 SSN입니다. 상사의 SSN을 확인해주세요.");
         }
 
@@ -321,7 +372,6 @@ public class EmployeeModel {
             throw new IllegalArgumentException("유효하지 않은 부서번호입니다. 부서번호를 확인해주세요.");
         }
 
-        // bdate String을 java.sql.Date로 변환
         Date BDate = null;
         try {
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
@@ -335,7 +385,6 @@ public class EmployeeModel {
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
-
             preparedStatement.setString(1, fname);
             preparedStatement.setString(2, minit);
             preparedStatement.setString(3, lname);
@@ -364,7 +413,6 @@ public class EmployeeModel {
         }
     }
 
-    // 직원 직계가족 검색
     public List<DependentEmployee> getDependentEmployees(String Ssn) {
         List<DependentEmployee> dependentEmployees = new ArrayList<>();
         String query;
@@ -387,9 +435,18 @@ public class EmployeeModel {
 
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
                 while (resultSet.next()) {
+                    String empName = resultSet.getString("Fname");
+                    String minit = resultSet.getString("Minit");
+                    String lname = resultSet.getString("Lname");
+
+                    if (minit != null && !minit.trim().isEmpty()) {
+                        empName += " " + minit;
+                    }
+                    empName += " " + lname;
+
                     DependentEmployee dependentEmployee = new DependentEmployee(
                             resultSet.getString("Essn"),
-                            resultSet.getString("Fname") + " " + resultSet.getString("Minit") + " " + resultSet.getString("Lname"),
+                            empName,
                             resultSet.getString("Dependent_name"),
                             resultSet.getString("Sex"),
                             resultSet.getString("Bdate"),
@@ -408,68 +465,7 @@ public class EmployeeModel {
         return dependentEmployees;
     }
 
-    // 프로젝트 목록을 가져오는 메소드 추가
-    public List<String> getProjectList() {
-        List<String> projectList = new ArrayList<>();
-        String query = "SELECT DISTINCT Pname FROM PROJECT";
-
-        try (PreparedStatement preparedStatement = connection.prepareStatement(query);
-             ResultSet resultSet = preparedStatement.executeQuery()) {
-
-            while (resultSet.next()) {
-                projectList.add(resultSet.getString("Pname"));
-            }
-
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(null, "프로젝트 목록을 가져오는 중 오류 발생: " + e.getMessage(),
-                    "Error", JOptionPane.ERROR_MESSAGE);
-        }
-
-        return projectList;
-    }
-
-    // 특정 프로젝트에 참여하는 직원들을 가져오는 메소드 추가
-    public List<Employee> getEmployeesByProject(String projectName) {
-        List<Employee> employees = new ArrayList<>();
-        String query = "SELECT E.Fname, E.Lname, E.SSN, E.Bdate, E.Address, E.Sex, E.Salary, " +
-                "S.Fname AS Supervisor, D.Dname, E.Dno, E.Last_Modified " +
-                "FROM EMPLOYEE E " +
-                "LEFT JOIN EMPLOYEE S ON E.Super_ssn = S.SSN " +
-                "JOIN DEPARTMENT D ON E.Dno = D.Dnumber " +
-                "JOIN WORKS_ON W ON E.SSN = W.Essn " +
-                "JOIN PROJECT P ON W.Pno = P.Pnumber " +
-                "WHERE P.Pname = ?";
-
-        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
-            preparedStatement.setString(1, projectName);
-
-            try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                while (resultSet.next()) {
-                    Employee employee = new Employee(
-                            resultSet.getString("Fname") + " " + resultSet.getString("Lname"),
-                            resultSet.getString("SSN"),
-                            resultSet.getDate("Bdate"),
-                            resultSet.getString("Address"),
-                            resultSet.getString("Sex"),
-                            resultSet.getDouble("Salary"),
-                            resultSet.getString("Supervisor"),
-                            resultSet.getString("Dname"),
-                            resultSet.getInt("Dno"),
-                            resultSet.getTimestamp("Last_Modified")
-                    );
-                    employees.add(employee);
-                }
-            }
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(null, "Error: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-        }
-
-        return employees;
-    }
-
-    // 직계가족을 가진 직원의 SSN 리스트
     public List<String> getHavingDepEmpSsnList() {
-
         List<String> EmpSsn = new ArrayList<>();
         String query = "SELECT DISTINCT ESSN FROM DEPENDENT";
 
@@ -480,7 +476,6 @@ public class EmployeeModel {
                 String essn = resultSet.getString("Essn");
                 EmpSsn.add(essn);
             }
-
         } catch (Exception e) {
             JOptionPane.showMessageDialog(null, "Error: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
@@ -488,7 +483,24 @@ public class EmployeeModel {
         return EmpSsn;
     }
 
-    // 특정 프로젝트의 정보를 가져오는 메소드 추가
+    public List<String> getProjectList() {
+        List<String> projectList = new ArrayList<>();
+        String query = "SELECT DISTINCT Pname FROM PROJECT";
+
+        try (PreparedStatement preparedStatement = connection.prepareStatement(query);
+             ResultSet resultSet = preparedStatement.executeQuery()) {
+
+            while (resultSet.next()) {
+                projectList.add(resultSet.getString("Pname"));
+            }
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(null, "프로젝트 목록을 가져오는 중 오류 발생: " + e.getMessage(),
+                    "Error", JOptionPane.ERROR_MESSAGE);
+        }
+
+        return projectList;
+    }
+
     public ProjectInfo getProjectInfo(String projectName) {
         String query = "SELECT P.Pname, D.Dname, COUNT(W.Essn) AS EmployeeCount, SUM(W.Hours) AS TotalHours " +
                 "FROM PROJECT P " +
@@ -527,7 +539,6 @@ public class EmployeeModel {
             while (resultSet.next()) {
                 deptList.add(resultSet.getString("Dname"));
             }
-
         } catch (Exception e) {
             JOptionPane.showMessageDialog(null, "부서 목록을 가져오는 중 오류 발생: " + e.getMessage(),
                     "Error", JOptionPane.ERROR_MESSAGE);
