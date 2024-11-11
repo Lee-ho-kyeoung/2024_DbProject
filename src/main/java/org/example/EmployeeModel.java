@@ -137,7 +137,7 @@ public class EmployeeModel {
     public List<Employee> searchEmployees(String category, String value) {
         List<Employee> employees = new ArrayList<>();
         String query = "SELECT E.Fname, E.Lname, E.SSN, E.Bdate, E.Address, E.Sex, E.Salary, " +
-                "S.Fname AS Supervisor, D.Dname " +
+                "S.Fname AS Supervisor, D.Dname , E.Dno " +
                 "FROM EMPLOYEE E " +
                 "LEFT JOIN EMPLOYEE S ON E.Super_ssn = S.SSN " +
                 "JOIN DEPARTMENT D ON E.Dno = D.Dnumber " +
