@@ -50,7 +50,6 @@ public class EditEmployeeDialog extends JDialog {
         ssnField.setText(employee.getSsn());
         ssnField.setEditable(false);
 
-
         bdateField = new JTextField(15);
         bdateField.setText(employee.getBirthDate());
 
@@ -64,10 +63,14 @@ public class EditEmployeeDialog extends JDialog {
         salaryField.setText(String.valueOf(employee.getSalary()));
 
         superSsnField = new JTextField(15);
-        //superSsnField.setText(employee.getSupervisor() != null ? employee.getSupervisor() : "");
+        superSsnField.setText(employee.getSupervisor() != null ? employee.getSupervisor() : "");
 
         dnoField = new JTextField(5);
-        dnoField.setText(String.valueOf(employee.getDno())); // 직원의 부서번호로 초기화
+        dnoField.setText(String.valueOf(employee.getDno()));
+
+        // Last Modified 라벨 추가
+        JLabel lastModifiedLabel = new JLabel("Last Modified: " + employee.getLastModified());
+        lastModifiedLabel.setForeground(Color.GRAY);
 
         // 컴포넌트 배치
         int gridy = 0;
@@ -122,6 +125,12 @@ public class EditEmployeeDialog extends JDialog {
         gbc.gridx = 1;
         inputPanel.add(dnoField, gbc);
 
+        // Last Modified 라벨 추가
+        gbc.gridx = 0; gbc.gridy = gridy++;
+        gbc.gridwidth = 2; // 두 칸을 차지하도록 설정
+        inputPanel.add(lastModifiedLabel, gbc);
+        gbc.gridwidth = 1; // 원래대로 복구
+
         // 버튼 패널
         JPanel buttonPanel = new JPanel();
         JButton confirmButton = new JButton("수정");
@@ -148,7 +157,6 @@ public class EditEmployeeDialog extends JDialog {
     }
 
     private boolean validateInput() {
-
         // 급여 유효성 검사
         if (!salaryField.getText().trim().isEmpty()) {
             try {

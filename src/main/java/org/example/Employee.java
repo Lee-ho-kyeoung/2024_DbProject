@@ -12,10 +12,12 @@ public class Employee {
     private double salary;
     private String supervisor;
     private String department;
-    private int dno; // 추가된 필드
+    private int dno;
+    private Date lastModified;
+
 
     public Employee(String name, String ssn, Date birthDate, String address,
-                    String sex, double salary, String supervisor, String department, int dno) {
+                    String sex, double salary, String supervisor, String department, int dno, Date lastModified) {
         this.name = name;
         this.ssn = ssn;
         this.birthDate = birthDate;
@@ -25,9 +27,10 @@ public class Employee {
         this.supervisor = supervisor;
         this.department = department;
         this.dno = dno;
+        this.lastModified = lastModified;
     }
 
-    // 기존 getter 메소드들...
+    // getter 메소드
     public String getName() { return name; }
     public String getSsn() { return ssn; }
     public String getBirthDate() {
@@ -39,5 +42,11 @@ public class Employee {
     public double getSalary() { return salary; }
     public String getSupervisor() { return supervisor; }
     public String getDepartment() { return department; }
-    public int getDno() { return dno; } // 새로운 getter
+    public int getDno() { return dno; }
+
+    public String getLastModified() {
+        if (lastModified == null) return "";
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        return sdf.format(lastModified);
+    }
 }

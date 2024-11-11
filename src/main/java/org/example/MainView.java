@@ -1,7 +1,7 @@
 package org.example;
 
 import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
+import javax.swing.table.*;
 import java.awt.*;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -53,13 +53,12 @@ public class MainView extends JFrame {
                             double salary, String superSsn, int dno);
     }
 
-    // getDepartmentNumber 메소드를 클래스 레벨로 이동
     private int getDepartmentNumber(String departmentName) {
         switch(departmentName) {
             case "Research": return 5;
             case "Administration": return 4;
             case "Headquarters": return 1;
-            default: return 1; // 기본값
+            default: return 1;
         }
     }
 
@@ -122,33 +121,9 @@ public class MainView extends JFrame {
         tablePanel = new JPanel(new CardLayout());
         cardLayout = (CardLayout) tablePanel.getLayout();
 
-        // 직원 테이블 설정
-        String[] employeeColumns = {"선택", "NAME", "SSN", "BDATE", "ADDRESS", "SEX", "SALARY", "SUPERVISOR", "DEPARTMENT"};
-        tableModel = new DefaultTableModel(employeeColumns, 0) {
-            @Override
-            public Class<?> getColumnClass(int column) {
-                return column == 0 ? Boolean.class : String.class;
-            }
-
-            @Override
-            public boolean isCellEditable(int row, int column) {
-                return column == 0;
-            }
-        };
-        employeeTable = new JTable(tableModel);
-        employeeScrollPane = new JScrollPane(employeeTable);
-
-        // 평균 급여 테이블 설정
-        String[] avgColumns = {"Group", "Average Salary"};
-        averageSalaryTableModel = new DefaultTableModel(avgColumns, 0);
-        averageSalaryTable = new JTable(averageSalaryTableModel);
-        averageSalaryScrollPane = new JScrollPane(averageSalaryTable);
-
-        // 직계가족 테이블 설정
-        String[] familyColumns = {"ESSN", "NAME", "DEPNAME", "SEX", "BDATE", "RELATION"};
-        familyTableModel = new DefaultTableModel(familyColumns, 0);
-        familyTable = new JTable(familyTableModel);
-        familyScrollPane = new JScrollPane(familyTable);
+        setupEmployeeTable();
+        setupAverageSalaryTable();
+        setupFamilyTable();
 
         // 테이블 패널에 추가
         tablePanel.add(employeeScrollPane, "EMPLOYEE");
@@ -172,96 +147,16 @@ public class MainView extends JFrame {
         // 수정 버튼
         JButton editButton = new JButton("선택한 직원 수정");
         editButton.addActionListener(e -> {
-            // SSN과 Name 체크박스의 상태 확인
-            boolean isSsnChecked = searchCheckBoxes[1].isSelected(); // SSN은 두 번째 체크박스
-            boolean isNameChecked = searchCheckBoxes[0].isSelected(); // Name은 첫 번째 체크박스
+            if (!validateCheckBoxes()) return;
+            if (!validateSelection()) return;
 
-            if (!isSsnChecked || !isNameChecked) {
-                JOptionPane.showMessageDialog(this,
-                        "직원 수정을 위해서는 Name과 SSN 항목이 선택되어야 합니다.",
-                        "선택 항목 오류",
-                        JOptionPane.WARNING_MESSAGE);
-                return;
-            }
+            int selectedRow = getSelectedRow();
+            if (selectedRow == -1) return;
 
-            int selectedCount = 0;
-            Employee selectedEmployee = null;
-            int selectedRow = -1;
+            Employee selectedEmployee = createEmployeeFromRow(selectedRow);
+            if (selectedEmployee == null) return;
 
-            for (int i = 0; i < tableModel.getRowCount(); i++) {
-                Boolean isSelected = (Boolean) tableModel.getValueAt(i, 0);
-                if (isSelected != null && isSelected) {
-                    selectedCount++;
-                    selectedRow = i;
-                }
-            }
-
-            if (selectedCount == 0) {
-                JOptionPane.showMessageDialog(this,
-                        "수정할 직원을 선택해주세요.",
-                        "선택 오류",
-                        JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            if (selectedCount > 1) {
-                JOptionPane.showMessageDialog(this,
-                        "한 번에 한 명의 직원만 수정할 수 있습니다.",
-                        "선택 오류",
-                        JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            //Date 형변환
-            String birthDateStr = (String) tableModel.getValueAt(selectedRow, 3);
-            Date birthDate = null;
-            try {
-                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-                birthDate = sdf.parse(birthDateStr);
-            } catch (Exception ex) {
-                ex.printStackTrace();  // Handle parsing error
-            }
-
-
-            // 선택된 직원의 정보로 Employee 객체 생성
-            selectedEmployee = new Employee(
-                    (String) tableModel.getValueAt(selectedRow, 1),  // name
-                    (String) tableModel.getValueAt(selectedRow, 2),  // ssn
-                    birthDate,  // birthDate
-                    (String) tableModel.getValueAt(selectedRow, 4),  // address
-                    (String) tableModel.getValueAt(selectedRow, 5),  // sex
-                    Double.parseDouble((String) tableModel.getValueAt(selectedRow, 6)),  // salary
-                    (String) tableModel.getValueAt(selectedRow, 7),  // supervisor
-                    (String) tableModel.getValueAt(selectedRow, 8),  // department
-                    getDepartmentNumber((String) tableModel.getValueAt(selectedRow, 8))  // department name으로 dno 가져오기
-            );
-
-            // 수정 다이얼로그 표시
-            EditEmployeeDialog dialog = new EditEmployeeDialog(this, selectedEmployee);
-            dialog.setVisible(true);
-
-            if (dialog.isConfirmed()) {
-                try {
-                    fireEditEmployee(
-                            dialog.getOriginalSsn(),
-                            dialog.getFname(),
-                            dialog.getMinit(),
-                            dialog.getLname(),
-                            dialog.getSsn(),
-                            dialog.getBdate(),
-                            dialog.getAddress(),
-                            dialog.getSex(),
-                            dialog.getSalary(),
-                            dialog.getSuperSsn(),
-                            dialog.getDno()
-                    );
-                } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(this,
-                            "직원 수정 중 오류가 발생했습니다: " + ex.getMessage(),
-                            "오류",
-                            JOptionPane.ERROR_MESSAGE);
-                }
-            }
+            showEditDialog(selectedEmployee);
         });
         buttonPanel.add(editButton);
 
@@ -286,10 +181,7 @@ public class MainView extends JFrame {
                             dialog.getDno()
                     );
                 } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(this,
-                            "직원 추가 중 오류가 발생했습니다: " + ex.getMessage(),
-                            "오류",
-                            JOptionPane.ERROR_MESSAGE);
+                    showError("직원 추가 중 오류가 발생했습니다: " + ex.getMessage(), "오류");
                 }
             }
         });
@@ -298,20 +190,10 @@ public class MainView extends JFrame {
         // 삭제 버튼
         JButton deleteButton = new JButton("선택한 데이터 삭제");
         deleteButton.addActionListener(e -> {
-            // SSN과 Name 체크박스의 상태 확인
-            boolean isSsnChecked = searchCheckBoxes[1].isSelected(); // SSN은 두 번째 체크박스
-            boolean isNameChecked = searchCheckBoxes[0].isSelected(); // Name은 첫 번째 체크박스
+            if (!validateCheckBoxes()) return;
 
-            if (!isSsnChecked || !isNameChecked) {
-                JOptionPane.showMessageDialog(this,
-                        "직원 삭제를 위해서는 Name과 SSN 항목이 선택되어야 합니다.",
-                        "선택 항목 오류",
-                        JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            int selectedCount = 0;
             List<String> selectedSSNs = new ArrayList<>();
+            int selectedCount = 0;
 
             for (int i = 0; i < tableModel.getRowCount(); i++) {
                 Boolean isSelected = (Boolean) tableModel.getValueAt(i, 0);
@@ -322,10 +204,7 @@ public class MainView extends JFrame {
             }
 
             if (selectedCount == 0) {
-                JOptionPane.showMessageDialog(this,
-                        "삭제할 직원을 선택해주세요.",
-                        "선택 오류",
-                        JOptionPane.WARNING_MESSAGE);
+                showError("삭제할 직원을 선택해주세요.", "선택 오류");
                 return;
             }
 
@@ -342,7 +221,11 @@ public class MainView extends JFrame {
         bottomPanel.add(buttonPanel, BorderLayout.EAST);
 
         // 테이블 선택 리스너
-        employeeTable.getModel().addTableModelListener(e -> updateSelectedEmployeeInfo());
+        employeeTable.getModel().addTableModelListener(e -> {
+            updateSelectedEmployeeInfo();
+            adjustColumnWidths(employeeTable);
+        });
+
         // 카테고리 변경 리스너
         searchCategoryComboBox.addActionListener(e -> {
             String selectedCategory = (String) searchCategoryComboBox.getSelectedItem();
@@ -389,6 +272,187 @@ public class MainView extends JFrame {
         add(bottomPanel, BorderLayout.SOUTH);
 
         pack();
+    }
+
+    private void setupEmployeeTable() {
+        String[] employeeColumns = {"선택", "NAME", "SSN", "BDATE", "ADDRESS", "SEX",
+                "SALARY", "SUPERVISOR", "DEPARTMENT", "LAST MODIFIED"};
+        tableModel = new DefaultTableModel(employeeColumns, 0) {
+            @Override
+            public Class<?> getColumnClass(int column) {
+                return column == 0 ? Boolean.class : String.class;
+            }
+
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return column == 0;
+            }
+        };
+        employeeTable = new JTable(tableModel);
+        employeeScrollPane = new JScrollPane(employeeTable);
+
+        // 테이블 자동 크기 조정 설정
+        employeeTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+        employeeTable.getTableHeader().setReorderingAllowed(false);
+    }
+
+    private void setupAverageSalaryTable() {
+        String[] avgColumns = {"Group", "Average Salary"};
+        averageSalaryTableModel = new DefaultTableModel(avgColumns, 0);
+        averageSalaryTable = new JTable(averageSalaryTableModel);
+        averageSalaryScrollPane = new JScrollPane(averageSalaryTable);
+
+        // 테이블 자동 크기 조정 설정
+        averageSalaryTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+        averageSalaryTable.getTableHeader().setReorderingAllowed(false);
+        averageSalaryTable.getModel().addTableModelListener(e -> adjustColumnWidths(averageSalaryTable));
+    }
+
+    private void setupFamilyTable() {
+        String[] familyColumns = {"ESSN", "NAME", "DEPNAME", "SEX", "BDATE", "RELATION"};
+        familyTableModel = new DefaultTableModel(familyColumns, 0);
+        familyTable = new JTable(familyTableModel);
+        familyScrollPane = new JScrollPane(familyTable);
+
+        // 테이블 자동 크기 조정 설정
+        familyTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+        familyTable.getTableHeader().setReorderingAllowed(false);
+        familyTable.getModel().addTableModelListener(e -> adjustColumnWidths(familyTable));
+    }
+
+    private void adjustColumnWidths(JTable table) {
+        TableColumnModel columnModel = table.getColumnModel();
+
+        for (int column = 0; column < table.getColumnCount(); column++) {
+            int width = 50; // 최소 너비
+
+            // 헤더의 너비 확인
+            TableColumn tableColumn = columnModel.getColumn(column);
+            Object headerValue = tableColumn.getHeaderValue();
+            if (headerValue != null) {
+                width = Math.max(width, getFontMetrics(getFont())
+                        .stringWidth(headerValue.toString()) + 20);
+            }
+
+            // 데이터의 너비 확인
+            for (int row = 0; row < table.getRowCount(); row++) {
+                TableCellRenderer renderer = table.getCellRenderer(row, column);
+                Component comp = table.prepareRenderer(renderer, row, column);
+                width = Math.max(width, comp.getPreferredSize().width + 20);
+            }
+
+            // 계산된 너비 설정 (최대 300px로 제한)
+            tableColumn.setPreferredWidth(Math.min(width, 300));
+        }
+    }
+
+    private boolean validateCheckBoxes() {
+        boolean isSsnChecked = searchCheckBoxes[1].isSelected();
+        boolean isNameChecked = searchCheckBoxes[0].isSelected();
+
+        if (!isSsnChecked || !isNameChecked) {
+            showError("직원 수정을 위해서는 Name과 SSN 항목이 선택되어야 합니다.", "선택 항목 오류");
+            return false;
+        }
+        return true;
+    }
+
+    private boolean validateSelection() {
+        int selectedCount = getSelectedCount();
+
+        if (selectedCount == 0) {
+            showError("수정할 직원을 선택해주세요.", "선택 오류");
+            return false;
+        }
+        if (selectedCount > 1) {
+            showError("한 번에 한 명의 직원만 수정할 수 있습니다.", "선택 오류");
+            return false;
+        }
+        return true;
+    }
+
+    private int getSelectedCount() {
+        int count = 0;
+        for (int i = 0; i < tableModel.getRowCount(); i++) {
+            Boolean isSelected = (Boolean) tableModel.getValueAt(i, 0);
+            if (isSelected != null && isSelected) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private int getSelectedRow() {
+        for (int i = 0; i < tableModel.getRowCount(); i++) {
+            Boolean isSelected = (Boolean) tableModel.getValueAt(i, 0);
+            if (isSelected != null && isSelected) {
+                return i;
+            }
+        }
+        return -1;
+    }
+    private Employee createEmployeeFromRow(int row) {
+        try {
+            Date birthDate = parseDate((String) tableModel.getValueAt(row, 3), "yyyy-MM-dd");
+            Date lastModified = parseDate((String) tableModel.getValueAt(row, 9), "yyyy-MM-dd HH:mm:ss");
+
+            return new Employee(
+                    (String) tableModel.getValueAt(row, 1),
+                    (String) tableModel.getValueAt(row, 2),
+                    birthDate,
+                    (String) tableModel.getValueAt(row, 4),
+                    (String) tableModel.getValueAt(row, 5),
+                    Double.parseDouble((String) tableModel.getValueAt(row, 6)),
+                    (String) tableModel.getValueAt(row, 7),
+                    (String) tableModel.getValueAt(row, 8),
+                    getDepartmentNumber((String) tableModel.getValueAt(row, 8)),
+                    lastModified
+            );
+        } catch (Exception e) {
+            showError("직원 정보 처리 중 오류가 발생했습니다: " + e.getMessage(), "오류");
+            return null;
+        }
+    }
+
+    private Date parseDate(String dateStr, String format) {
+        try {
+            if (dateStr != null && !dateStr.isEmpty()) {
+                SimpleDateFormat sdf = new SimpleDateFormat(format);
+                return sdf.parse(dateStr);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    private void showEditDialog(Employee selectedEmployee) {
+        EditEmployeeDialog dialog = new EditEmployeeDialog(this, selectedEmployee);
+        dialog.setVisible(true);
+
+        if (dialog.isConfirmed()) {
+            try {
+                fireEditEmployee(
+                        dialog.getOriginalSsn(),
+                        dialog.getFname(),
+                        dialog.getMinit(),
+                        dialog.getLname(),
+                        dialog.getSsn(),
+                        dialog.getBdate(),
+                        dialog.getAddress(),
+                        dialog.getSex(),
+                        dialog.getSalary(),
+                        dialog.getSuperSsn(),
+                        dialog.getDno()
+                );
+            } catch (Exception ex) {
+                showError("직원 수정 중 오류가 발생했습니다: " + ex.getMessage(), "오류");
+            }
+        }
+    }
+
+    private void showError(String message, String title) {
+        JOptionPane.showMessageDialog(this, message, title, JOptionPane.ERROR_MESSAGE);
     }
 
     public void addDeleteListener(EmployeeDeleteListener listener) {
@@ -481,6 +545,7 @@ public class MainView extends JFrame {
         selectedEmployeeCountLabel.setText("선택한 직원 수: " + selectedCount);
     }
 
+    // Getter 메서드들
     public JButton getSearchButton() {
         return searchButton;
     }
@@ -512,7 +577,7 @@ public class MainView extends JFrame {
     public void setTableData(List<Employee> employees, boolean[] selectedFields) {
         tableModel.setRowCount(0);
         for (Employee emp : employees) {
-            Object[] row = new Object[9];
+            Object[] row = new Object[10];
             row[0] = false;
             if (selectedFields[0]) row[1] = emp.getName();
             if (selectedFields[1]) row[2] = emp.getSsn();
@@ -522,8 +587,11 @@ public class MainView extends JFrame {
             if (selectedFields[5]) row[6] = String.valueOf(emp.getSalary());
             if (selectedFields[6]) row[7] = emp.getSupervisor();
             if (selectedFields[7]) row[8] = emp.getDepartment();
+            row[9] = emp.getLastModified();
             tableModel.addRow(row);
         }
+
+        adjustColumnWidths(employeeTable);
         employeeTable.repaint();
     }
 
@@ -536,6 +604,7 @@ public class MainView extends JFrame {
             };
             averageSalaryTableModel.addRow(row);
         }
+        adjustColumnWidths(averageSalaryTable);
     }
 
     public void setFamilyData(List<DependentEmployee> dependentEmployees) {
@@ -551,6 +620,7 @@ public class MainView extends JFrame {
             };
             familyTableModel.addRow(row);
         }
+        adjustColumnWidths(familyTable);
     }
 
     public void setDepEmpCategories(List<String> ssnList) {
@@ -562,10 +632,9 @@ public class MainView extends JFrame {
     }
 
     public void addDeptListListener(Runnable listener) {
-        // 예시로 JComboBox 선택이 변경될 때마다 호출되는 리스너로 처리
         searchCategoryComboBox.addActionListener(e -> {
             if (searchCategoryComboBox.getSelectedItem().equals("부서")) {
-                listener.run(); // 리스너 실행
+                listener.run();
             }
         });
     }

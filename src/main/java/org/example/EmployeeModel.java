@@ -146,7 +146,7 @@ public class EmployeeModel {
     public List<Employee> getAllEmployees() {
         List<Employee> employees = new ArrayList<>();
         String query = "SELECT E.Fname, E.Minit, E.Lname, E.SSN, E.Bdate, E.Address, E.Sex, E.Salary, " +
-                "S.Fname AS Supervisor, D.Dname, E.Dno " +
+                "S.Fname AS Supervisor, D.Dname, E.Dno, E.Last_Modified " +  // Last_Modified 추가
                 "FROM EMPLOYEE E " +
                 "LEFT JOIN EMPLOYEE S ON E.Super_ssn = S.SSN " +
                 "JOIN DEPARTMENT D ON E.Dno = D.Dnumber";
@@ -170,7 +170,8 @@ public class EmployeeModel {
                         resultSet.getDouble("Salary"),
                         resultSet.getString("Supervisor"),
                         resultSet.getString("Dname"),
-                        resultSet.getInt("Dno")
+                        resultSet.getInt("Dno"),
+                        resultSet.getTimestamp("Last_Modified")  // Last_Modified 추가
                 );
                 employees.add(employee);
             }
@@ -187,7 +188,7 @@ public class EmployeeModel {
     public List<Employee> searchEmployees(String category, String value) {
         List<Employee> employees = new ArrayList<>();
         String query = "SELECT E.Fname, E.Lname, E.SSN, E.Bdate, E.Address, E.Sex, E.Salary, " +
-                "S.Fname AS Supervisor, D.Dname , E.Dno " +
+                "S.Fname AS Supervisor, D.Dname, E.Dno, E.Last_Modified " +
                 "FROM EMPLOYEE E " +
                 "LEFT JOIN EMPLOYEE S ON E.Super_ssn = S.SSN " +
                 "JOIN DEPARTMENT D ON E.Dno = D.Dnumber WHERE ";
@@ -227,7 +228,8 @@ public class EmployeeModel {
                             resultSet.getDouble("Salary"),
                             resultSet.getString("Supervisor"),
                             resultSet.getString("Dname"),
-                            resultSet.getInt("Dno")
+                            resultSet.getInt("Dno"),
+                            resultSet.getTimestamp("Last_Modified")
                     );
                     employees.add(employee);
                 }
@@ -430,7 +432,7 @@ public class EmployeeModel {
     public List<Employee> getEmployeesByProject(String projectName) {
         List<Employee> employees = new ArrayList<>();
         String query = "SELECT E.Fname, E.Lname, E.SSN, E.Bdate, E.Address, E.Sex, E.Salary, " +
-                "S.Fname AS Supervisor, D.Dname , E.Dno " +
+                "S.Fname AS Supervisor, D.Dname, E.Dno, E.Last_Modified " +
                 "FROM EMPLOYEE E " +
                 "LEFT JOIN EMPLOYEE S ON E.Super_ssn = S.SSN " +
                 "JOIN DEPARTMENT D ON E.Dno = D.Dnumber " +
@@ -452,7 +454,8 @@ public class EmployeeModel {
                             resultSet.getDouble("Salary"),
                             resultSet.getString("Supervisor"),
                             resultSet.getString("Dname"),
-                            resultSet.getInt("Dno")  // Dno 추가
+                            resultSet.getInt("Dno"),
+                            resultSet.getTimestamp("Last_Modified")
                     );
                     employees.add(employee);
                 }
