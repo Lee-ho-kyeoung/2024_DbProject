@@ -3,7 +3,9 @@ package org.example;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 public class MainView extends JFrame {
@@ -210,11 +212,22 @@ public class MainView extends JFrame {
                 return;
             }
 
+            //Date 형변환
+            String birthDateStr = (String) tableModel.getValueAt(selectedRow, 3);
+            Date birthDate = null;
+            try {
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+                birthDate = sdf.parse(birthDateStr);
+            } catch (Exception ex) {
+                ex.printStackTrace();  // Handle parsing error
+            }
+
+
             // 선택된 직원의 정보로 Employee 객체 생성
             selectedEmployee = new Employee(
                     (String) tableModel.getValueAt(selectedRow, 1),  // name
                     (String) tableModel.getValueAt(selectedRow, 2),  // ssn
-                    (String) tableModel.getValueAt(selectedRow, 3),  // birthDate
+                    birthDate,  // birthDate
                     (String) tableModel.getValueAt(selectedRow, 4),  // address
                     (String) tableModel.getValueAt(selectedRow, 5),  // sex
                     Double.parseDouble((String) tableModel.getValueAt(selectedRow, 6)),  // salary
@@ -418,11 +431,6 @@ public class MainView extends JFrame {
 
         switch (category) {
             case "부서":
-                searchValueComboBox.removeAllItems();
-                String[] departments = {"Research", "Administration", "Headquarters"};
-                for (String dept : departments) {
-                    searchValueComboBox.addItem(dept);
-                }
                 cl.show(searchValuePanel, "COMBO");
                 break;
             case "성별":
@@ -550,6 +558,22 @@ public class MainView extends JFrame {
         depEmpByComboBox.addItem("전체 조회");
         for (String ssn : ssnList) {
             depEmpByComboBox.addItem(ssn);
+        }
+    }
+
+    public void addDeptListListener(Runnable listener) {
+        // 예시로 JComboBox 선택이 변경될 때마다 호출되는 리스너로 처리
+        searchCategoryComboBox.addActionListener(e -> {
+            if (searchCategoryComboBox.getSelectedItem().equals("부서")) {
+                listener.run(); // 리스너 실행
+            }
+        });
+    }
+
+    public void setDeptCategories(List<String> DeptList) {
+        searchValueComboBox.removeAllItems();
+        for (String dept : DeptList) {
+            searchValueComboBox.addItem(dept);
         }
     }
 

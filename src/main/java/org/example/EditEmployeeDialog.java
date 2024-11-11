@@ -2,6 +2,7 @@ package org.example;
 
 import javax.swing.*;
 import java.awt.*;
+import java.util.Date;
 
 public class EditEmployeeDialog extends JDialog {
     private JTextField fnameField;
@@ -47,6 +48,8 @@ public class EditEmployeeDialog extends JDialog {
 
         ssnField = new JTextField(15);
         ssnField.setText(employee.getSsn());
+        ssnField.setEditable(false);
+
 
         bdateField = new JTextField(15);
         bdateField.setText(employee.getBirthDate());
@@ -61,7 +64,7 @@ public class EditEmployeeDialog extends JDialog {
         salaryField.setText(String.valueOf(employee.getSalary()));
 
         superSsnField = new JTextField(15);
-        superSsnField.setText(employee.getSupervisor() != null ? employee.getSupervisor() : "");
+        //superSsnField.setText(employee.getSupervisor() != null ? employee.getSupervisor() : "");
 
         dnoField = new JTextField(5);
         dnoField.setText(String.valueOf(employee.getDno())); // 직원의 부서번호로 초기화
@@ -145,14 +148,6 @@ public class EditEmployeeDialog extends JDialog {
     }
 
     private boolean validateInput() {
-        // SSN 필수 입력 체크
-        if (ssnField.getText().trim().isEmpty()) {
-            JOptionPane.showMessageDialog(this,
-                    "SSN은 필수 입력 항목입니다.",
-                    "입력 오류",
-                    JOptionPane.ERROR_MESSAGE);
-            return false;
-        }
 
         // 급여 유효성 검사
         if (!salaryField.getText().trim().isEmpty()) {

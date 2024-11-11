@@ -4,6 +4,7 @@ import io.github.cdimascio.dotenv.Dotenv;
 
 import javax.swing.*;
 import java.sql.*;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -14,23 +15,38 @@ public class EmployeeModel {
     private static final String USER = dotenv.get("DB_USER");
     private static final String PASSWORD = dotenv.get("DB_PASSWORD");
 
-    // SSN 존재 여부 확인 메소드
-    public boolean isSSNExists(String ssn, String originalSsn) {
-        if (ssn.equals(originalSsn)) {
-            return false; // 자기 자신의 SSN인 경우는 중복으로 처리하지 않음
-        }
+    private Connection connection;
 
+    public EmployeeModel() {
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
-            try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD);
-                 PreparedStatement statement = connection.prepareStatement(
-                         "SELECT COUNT(*) FROM EMPLOYEE WHERE SSN = ?")) {
+            connection = DriverManager.getConnection(URL, USER, PASSWORD);
+        } catch (Exception e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(null, "DB 연결 중 오류가 발생했습니다: " + e.getMessage(),
+                    "Connection Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
 
-                statement.setString(1, ssn);
-                try (ResultSet resultSet = statement.executeQuery()) {
-                    if (resultSet.next()) {
-                        return resultSet.getInt(1) > 0;
-                    }
+    public void closeConnection() {
+        try {
+            if (connection != null && !connection.isClosed()) {
+                connection.close();
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    // SSN 존재 여부 확인 메소드
+    public boolean isSSNExists(String ssn) {
+
+        String query = "SELECT COUNT(*) FROM EMPLOYEE WHERE SSN = ?";
+        try (PreparedStatement statement = connection.prepareStatement(query)) {
+            statement.setString(1, ssn);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (resultSet.next()) {
+                    return resultSet.getInt(1) > 0;
                 }
             }
         } catch (Exception e) {
@@ -39,46 +55,84 @@ public class EmployeeModel {
         return false;
     }
 
-    // 직원 정보 수정 메소드
+    // Department 존재 여부 확인 메소드
+    public boolean isDeptExists(int Dno) {
+
+        String query = "SELECT EXISTS (SELECT 1 FROM Department WHERE Dnumber = ?) AS DeptExists";
+        try (PreparedStatement statement = connection.prepareStatement(query)) {
+            statement.setInt(1, Dno);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (resultSet.next()) {
+                    return resultSet.getBoolean("DeptExists");
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+
+
+    // 직원 정보 수정
     public void updateEmployee(String originalSsn, String fname, String minit, String lname,
                                String ssn, String bdate, String address, String sex,
                                double salary, String superSsn, int dno) {
 
-        // SSN 중복 체크
-        if (isSSNExists(ssn, originalSsn)) {
-            throw new IllegalArgumentException("이미 존재하는 SSN입니다.");
+//        // SSN 중복 체크
+//        if (isSSNExists(ssn, originalSsn)) {
+//            throw new IllegalArgumentException("이미 존재하는 SSN입니다.");
+//        }
+
+        // super_ssn과 ssn 동일하게 불가능
+        if (superSsn.equals(ssn)) {
+            throw new IllegalArgumentException("자기 자신을 상사의 SSN으로 설정할 수 없습니다.");
+        }
+
+        // super_ssn 존재 여부 확인
+        if (!isSSNExists(superSsn)) {
+            throw new IllegalArgumentException("유효하지 않은 SSN입니다. 상사의 SSN을 확인해주세요.");
+        }
+
+        // bdate String을 java.sql.Date로 변환
+        Date BDate = null;
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+            java.util.Date parsedDate = sdf.parse(bdate);
+            BDate = new Date(parsedDate.getTime());
+        } catch (Exception e) {
+            throw new IllegalArgumentException("잘못된 날짜 형식입니다. yyyy-MM-dd 형식으로 입력해주세요.");
+        }
+
+        if(!isDeptExists(dno)){
+            throw new IllegalArgumentException("유효하지 않은 부서번호입니다. 부서번호를 확인해주세요.");
         }
 
         String query = "UPDATE EMPLOYEE SET Fname=?, Minit=?, Lname=?, SSN=?, Bdate=?, " +
                 "Address=?, Sex=?, Salary=?, Super_ssn=?, Dno=? WHERE SSN=?";
 
-        try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-            try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD);
-                 PreparedStatement statement = connection.prepareStatement(query)) {
-
-                statement.setString(1, fname);
-                statement.setString(2, minit);
-                statement.setString(3, lname);
-                statement.setString(4, ssn);
-                statement.setString(5, bdate);
-                statement.setString(6, address);
-                statement.setString(7, sex);
-                statement.setDouble(8, salary);
-                if (superSsn != null && !superSsn.trim().isEmpty()) {
-                    statement.setString(9, superSsn);
-                } else {
-                    statement.setNull(9, Types.VARCHAR);
-                }
-                statement.setInt(10, dno);
-                statement.setString(11, originalSsn);
-
-                statement.executeUpdate();
-                JOptionPane.showMessageDialog(null,
-                        "직원 정보가 성공적으로 수정되었습니다.",
-                        "수정 완료",
-                        JOptionPane.INFORMATION_MESSAGE);
+        try (PreparedStatement statement = connection.prepareStatement(query)) {
+            statement.setString(1, fname);
+            statement.setString(2, minit);
+            statement.setString(3, lname);
+            statement.setString(4, ssn);
+            statement.setDate(5, BDate);
+            statement.setString(6, address);
+            statement.setString(7, sex);
+            statement.setDouble(8, salary);
+            if (superSsn != null && !superSsn.trim().isEmpty()) {
+                statement.setString(9, superSsn);
+            } else {
+                statement.setNull(9, Types.VARCHAR);
             }
+            statement.setInt(10, dno);
+            statement.setString(11, originalSsn);
+
+            statement.executeUpdate();
+            JOptionPane.showMessageDialog(null,
+                    "직원 정보가 성공적으로 수정되었습니다.",
+                    "수정 완료",
+                    JOptionPane.INFORMATION_MESSAGE);
         } catch (Exception e) {
             JOptionPane.showMessageDialog(null,
                     "직원 정보 수정 중 오류가 발생했습니다: " + e.getMessage(),
@@ -91,38 +145,34 @@ public class EmployeeModel {
     // 모든 직원 검색
     public List<Employee> getAllEmployees() {
         List<Employee> employees = new ArrayList<>();
+        String query = "SELECT E.Fname, E.Minit, E.Lname, E.SSN, E.Bdate, E.Address, E.Sex, E.Salary, " +
+                "S.Fname AS Supervisor, D.Dname, E.Dno " +
+                "FROM EMPLOYEE E " +
+                "LEFT JOIN EMPLOYEE S ON E.Super_ssn = S.SSN " +
+                "JOIN DEPARTMENT D ON E.Dno = D.Dnumber";
 
-        try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-            try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD);
-                 Statement statement = connection.createStatement();
-                 ResultSet resultSet = statement.executeQuery(
-                         "SELECT E.Fname, E.Minit, E.Lname, E.SSN, E.Bdate, E.Address, E.Sex, E.Salary, " +
-                                 "S.Fname AS Supervisor, D.Dname, E.Dno " +  // Dno 추가
-                                 "FROM EMPLOYEE E " +
-                                 "LEFT JOIN EMPLOYEE S ON E.Super_ssn = S.SSN " +
-                                 "JOIN DEPARTMENT D ON E.Dno = D.Dnumber")) {
+        try (Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(query)) {
 
-                while (resultSet.next()) {
-                    String name = resultSet.getString("Fname");
-                    if (resultSet.getString("Minit") != null) {
-                        name += " " + resultSet.getString("Minit");
-                    }
-                    name += " " + resultSet.getString("Lname");
-
-                    Employee employee = new Employee(
-                            name,
-                            resultSet.getString("SSN"),
-                            resultSet.getString("Bdate"),
-                            resultSet.getString("Address"),
-                            resultSet.getString("Sex"),
-                            resultSet.getDouble("Salary"),
-                            resultSet.getString("Supervisor"),
-                            resultSet.getString("Dname"),
-                            resultSet.getInt("Dno")  // Dno 추가
-                    );
-                    employees.add(employee);
+            while (resultSet.next()) {
+                String name = resultSet.getString("Fname");
+                if (resultSet.getString("Minit") != null) {
+                    name += " " + resultSet.getString("Minit");
                 }
+                name += " " + resultSet.getString("Lname");
+
+                Employee employee = new Employee(
+                        name,
+                        resultSet.getString("SSN"),
+                        resultSet.getDate("Bdate"),
+                        resultSet.getString("Address"),
+                        resultSet.getString("Sex"),
+                        resultSet.getDouble("Salary"),
+                        resultSet.getString("Supervisor"),
+                        resultSet.getString("Dname"),
+                        resultSet.getInt("Dno")
+                );
+                employees.add(employee);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -140,66 +190,49 @@ public class EmployeeModel {
                 "S.Fname AS Supervisor, D.Dname , E.Dno " +
                 "FROM EMPLOYEE E " +
                 "LEFT JOIN EMPLOYEE S ON E.Super_ssn = S.SSN " +
-                "JOIN DEPARTMENT D ON E.Dno = D.Dnumber " +
-                "WHERE ";
+                "JOIN DEPARTMENT D ON E.Dno = D.Dnumber WHERE ";
 
         try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-            try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD)) {
-                PreparedStatement statement;
+            PreparedStatement statement;
 
-                switch (category) {
-                    case "부서":
-                        query += "D.Dname = ?";
-                        statement = connection.prepareStatement(query);
-                        statement.setString(1, value);
-                        break;
-                    case "성별":
-                        query += "E.Sex = ?";
-                        statement = connection.prepareStatement(query);
-                        statement.setString(1, value);
-                        break;
-                    case "급여":
-                        try {
-                            double salaryValue = Double.parseDouble(value);
-                            query += "E.Salary >= ?";
-                            statement = connection.prepareStatement(query);
-                            statement.setDouble(1, salaryValue);
-                        } catch (NumberFormatException e) {
-                            JOptionPane.showMessageDialog(null,
-                                    "잘못된 급여 형식입니다. 숫자를 입력해주세요.",
-                                    "입력 오류",
-                                    JOptionPane.ERROR_MESSAGE);
-                            return employees;
-                        }
-                        break;
-                    default:
-                        throw new IllegalArgumentException("Invalid category: " + category);
-                }
+            switch (category) {
+                case "부서":
+                    query += "D.Dname = ?";
+                    statement = connection.prepareStatement(query);
+                    statement.setString(1, value);
+                    break;
+                case "성별":
+                    query += "E.Sex = ?";
+                    statement = connection.prepareStatement(query);
+                    statement.setString(1, value);
+                    break;
+                case "급여":
+                    double salaryValue = Double.parseDouble(value);
+                    query += "E.Salary >= ?";
+                    statement = connection.prepareStatement(query);
+                    statement.setDouble(1, salaryValue);
+                    break;
+                default:
+                    throw new IllegalArgumentException("Invalid category: " + category);
+            }
 
-                try (ResultSet resultSet = statement.executeQuery()) {
-                    while (resultSet.next()) {
-                        Employee employee = new Employee(
-                                resultSet.getString("Fname") + " " + resultSet.getString("Lname"),
-                                resultSet.getString("SSN"),
-                                resultSet.getString("Bdate"),
-                                resultSet.getString("Address"),
-                                resultSet.getString("Sex"),
-                                resultSet.getDouble("Salary"),
-                                resultSet.getString("Supervisor"),
-                                resultSet.getString("Dname"),
-                                resultSet.getInt("Dno")  // Dno 추가
-                        );
-                        employees.add(employee);
-                    }
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    Employee employee = new Employee(
+                            resultSet.getString("Fname") + " " + resultSet.getString("Lname"),
+                            resultSet.getString("SSN"),
+                            resultSet.getDate("Bdate"),
+                            resultSet.getString("Address"),
+                            resultSet.getString("Sex"),
+                            resultSet.getDouble("Salary"),
+                            resultSet.getString("Supervisor"),
+                            resultSet.getString("Dname"),
+                            resultSet.getInt("Dno")
+                    );
+                    employees.add(employee);
                 }
             }
-        } catch (ClassNotFoundException e) {
-            JOptionPane.showMessageDialog(null, "MySQL JDBC Driver not found: " + e.getMessage(),
-                    "Driver Error", JOptionPane.ERROR_MESSAGE);
-        } catch (SQLException e) {
-            JOptionPane.showMessageDialog(null, "Database connection error: " + e.getMessage(),
-                    "SQL Error", JOptionPane.ERROR_MESSAGE);
+        } catch (Exception e) {
             e.printStackTrace();
         }
 
@@ -209,39 +242,23 @@ public class EmployeeModel {
     // 그룹의 평균 급여
     public List<AverageSalary> getGroupAverageSalary(String groupBy) {
         List<AverageSalary> result = new ArrayList<>();
-        String query = "";
+        String query = switch (groupBy) {
+            case "그룹 없음" -> "SELECT 'Total' as groupName, AVG(Salary) as avgSalary FROM EMPLOYEE";
+            case "부서" -> "SELECT D.Dname as groupName, AVG(E.Salary) as avgSalary " +
+                    "FROM EMPLOYEE E JOIN DEPARTMENT D ON E.Dno = D.Dnumber GROUP BY D.Dname";
+            case "성별" -> "SELECT Sex as groupName, AVG(Salary) as avgSalary FROM EMPLOYEE GROUP BY Sex";
+            case "상급자" -> "SELECT CONCAT(S.Fname, ' ', S.Lname) as groupName, AVG(E.Salary) as avgSalary " +
+                    "FROM EMPLOYEE E LEFT JOIN EMPLOYEE S ON E.Super_ssn = S.SSN GROUP BY E.Super_ssn";
+            default -> throw new IllegalArgumentException("Invalid groupBy: " + groupBy);
+        };
 
-        switch (groupBy) {
-            case "그룹 없음":
-                query = "SELECT 'Total' as groupName, AVG(Salary) as avgSalary FROM EMPLOYEE";
-                break;
-            case "부서":
-                query = "SELECT D.Dname as groupName, AVG(E.Salary) as avgSalary " +
-                        "FROM EMPLOYEE E JOIN DEPARTMENT D ON E.Dno = D.Dnumber " +
-                        "GROUP BY D.Dname";
-                break;
-            case "성별":
-                query = "SELECT Sex as groupName, AVG(Salary) as avgSalary " +
-                        "FROM EMPLOYEE GROUP BY Sex";
-                break;
-            case "상급자":
-                query = "SELECT CONCAT(S.Fname, ' ', S.Lname) as groupName, AVG(E.Salary) as avgSalary " +
-                        "FROM EMPLOYEE E LEFT JOIN EMPLOYEE S ON E.Super_ssn = S.SSN " +
-                        "GROUP BY E.Super_ssn";
-                break;
-        }
+        try (Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(query)) {
 
-        try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-            try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD);
-                 Statement statement = connection.createStatement();
-                 ResultSet resultSet = statement.executeQuery(query)) {
-
-                while (resultSet.next()) {
-                    String groupName = resultSet.getString("groupName");
-                    double avgSalary = resultSet.getDouble("avgSalary");
-                    result.add(new AverageSalary(groupName != null ? groupName : "No Supervisor", avgSalary));
-                }
+            while (resultSet.next()) {
+                String groupName = resultSet.getString("groupName");
+                double avgSalary = resultSet.getDouble("avgSalary");
+                result.add(new AverageSalary(groupName != null ? groupName : "No Supervisor", avgSalary));
             }
         } catch (Exception e) {
             JOptionPane.showMessageDialog(null, "Error: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
@@ -288,33 +305,53 @@ public class EmployeeModel {
             throw new IllegalArgumentException("SSN은 필수 입력 항목입니다.");
         }
 
+        // super_ssn과 ssn 동일하게 불가능
+        if (superSsn.equals(ssn)) {
+            throw new IllegalArgumentException("자기 자신을 상사의 SSN으로 설정할 수 없습니다.");
+        }
+
+        // super_ssn 존재 여부 확인
+        if (!isSSNExists(superSsn)) {
+            throw new IllegalArgumentException("유효하지 않은 SSN입니다. 상사의 SSN을 확인해주세요.");
+        }
+
+        if(!isDeptExists(dno)){
+            throw new IllegalArgumentException("유효하지 않은 부서번호입니다. 부서번호를 확인해주세요.");
+        }
+
+        // bdate String을 java.sql.Date로 변환
+        Date BDate = null;
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+            java.util.Date parsedDate = sdf.parse(bdate);
+            BDate = new Date(parsedDate.getTime());
+        } catch (Exception e) {
+            throw new IllegalArgumentException("잘못된 날짜 형식입니다. yyyy-MM-dd 형식으로 입력해주세요.");
+        }
+
         String query = "INSERT INTO EMPLOYEE (Fname, Minit, Lname, SSN, Bdate, Address, Sex, Salary, Super_ssn, Dno) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-        try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-            try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD);
-                 PreparedStatement statement = connection.prepareStatement(query)) {
+        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
 
-                statement.setString(1, fname);
-                statement.setString(2, minit);
-                statement.setString(3, lname);
-                statement.setString(4, ssn);
-                statement.setString(5, bdate);
-                statement.setString(6, address);
-                statement.setString(7, sex);
-                statement.setDouble(8, salary);
-                if (superSsn != null && !superSsn.trim().isEmpty()) {
-                    statement.setString(9, superSsn);
-                } else {
-                    statement.setNull(9, Types.VARCHAR);
-                }
-                statement.setInt(10, dno);
-
-                statement.executeUpdate();
-                JOptionPane.showMessageDialog(null, "직원이 성공적으로 추가되었습니다.",
-                        "추가 완료", JOptionPane.INFORMATION_MESSAGE);
+            preparedStatement.setString(1, fname);
+            preparedStatement.setString(2, minit);
+            preparedStatement.setString(3, lname);
+            preparedStatement.setString(4, ssn);
+            preparedStatement.setDate(5, BDate);
+            preparedStatement.setString(6, address);
+            preparedStatement.setString(7, sex);
+            preparedStatement.setDouble(8, salary);
+            if (superSsn != null && !superSsn.trim().isEmpty()) {
+                preparedStatement.setString(9, superSsn);
+            } else {
+                preparedStatement.setNull(9, Types.VARCHAR);
             }
+            preparedStatement.setInt(10, dno);
+
+            preparedStatement.executeUpdate();
+            JOptionPane.showMessageDialog(null, "직원이 성공적으로 추가되었습니다.",
+                    "추가 완료", JOptionPane.INFORMATION_MESSAGE);
         } catch (SQLIntegrityConstraintViolationException e) {
             JOptionPane.showMessageDialog(null, "이미 존재하는 SSN입니다.",
                     "추가 실패", JOptionPane.ERROR_MESSAGE);
@@ -324,7 +361,6 @@ public class EmployeeModel {
             e.printStackTrace();
         }
     }
-
 
     // 직원 직계가족 검색
     public List<DependentEmployee> getDependentEmployees(String Ssn) {
@@ -342,31 +378,29 @@ public class EmployeeModel {
                     "WHERE d.Essn = ?";
         }
 
-        try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-            try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD);
-                 PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+            if (!Ssn.equals("전체 조회")) {
+                preparedStatement.setString(1, Ssn);
+            }
 
-                if (!Ssn.equals("전체 조회")) {
-                    preparedStatement.setString(1, Ssn);
-                }
-
-                try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                    while (resultSet.next()) {
-                        DependentEmployee dependentEmployee = new DependentEmployee(
-                                resultSet.getString("Essn"),
-                                resultSet.getString("Fname") + " " + resultSet.getString("Minit") + " " + resultSet.getString("Lname"),
-                                resultSet.getString("Dependent_name"),
-                                resultSet.getString("Sex"),
-                                resultSet.getString("Bdate"),
-                                resultSet.getString("Relationship")
-                        );
-                        dependentEmployees.add(dependentEmployee);
-                    }
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                while (resultSet.next()) {
+                    DependentEmployee dependentEmployee = new DependentEmployee(
+                            resultSet.getString("Essn"),
+                            resultSet.getString("Fname") + " " + resultSet.getString("Minit") + " " + resultSet.getString("Lname"),
+                            resultSet.getString("Dependent_name"),
+                            resultSet.getString("Sex"),
+                            resultSet.getString("Bdate"),
+                            resultSet.getString("Relationship")
+                    );
+                    dependentEmployees.add(dependentEmployee);
                 }
             }
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(null, "Error: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(null,
+                    "직계가족 검색 중 오류가 발생했습니다: " + e.getMessage(),
+                    "Error", JOptionPane.ERROR_MESSAGE);
+            e.printStackTrace();
         }
 
         return dependentEmployees;
@@ -377,16 +411,13 @@ public class EmployeeModel {
         List<String> projectList = new ArrayList<>();
         String query = "SELECT DISTINCT Pname FROM PROJECT";
 
-        try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-            try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD);
-                 Statement statement = connection.createStatement();
-                 ResultSet resultSet = statement.executeQuery(query)) {
+        try (PreparedStatement preparedStatement = connection.prepareStatement(query);
+             ResultSet resultSet = preparedStatement.executeQuery()) {
 
-                while (resultSet.next()) {
-                    projectList.add(resultSet.getString("Pname"));
-                }
+            while (resultSet.next()) {
+                projectList.add(resultSet.getString("Pname"));
             }
+
         } catch (Exception e) {
             JOptionPane.showMessageDialog(null, "프로젝트 목록을 가져오는 중 오류 발생: " + e.getMessage(),
                     "Error", JOptionPane.ERROR_MESSAGE);
@@ -399,7 +430,7 @@ public class EmployeeModel {
     public List<Employee> getEmployeesByProject(String projectName) {
         List<Employee> employees = new ArrayList<>();
         String query = "SELECT E.Fname, E.Lname, E.SSN, E.Bdate, E.Address, E.Sex, E.Salary, " +
-                "S.Fname AS Supervisor, D.Dname " +
+                "S.Fname AS Supervisor, D.Dname , E.Dno " +
                 "FROM EMPLOYEE E " +
                 "LEFT JOIN EMPLOYEE S ON E.Super_ssn = S.SSN " +
                 "JOIN DEPARTMENT D ON E.Dno = D.Dnumber " +
@@ -407,28 +438,23 @@ public class EmployeeModel {
                 "JOIN PROJECT P ON W.Pno = P.Pnumber " +
                 "WHERE P.Pname = ?";
 
-        try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-            try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD);
-                 PreparedStatement statement = connection.prepareStatement(query)) {
+        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+            preparedStatement.setString(1, projectName);
 
-                statement.setString(1, projectName);
-
-                try (ResultSet resultSet = statement.executeQuery()) {
-                    while (resultSet.next()) {
-                        Employee employee = new Employee(
-                                resultSet.getString("Fname") + " " + resultSet.getString("Lname"),
-                                resultSet.getString("SSN"),
-                                resultSet.getString("Bdate"),
-                                resultSet.getString("Address"),
-                                resultSet.getString("Sex"),
-                                resultSet.getDouble("Salary"),
-                                resultSet.getString("Supervisor"),
-                                resultSet.getString("Dname"),
-                                resultSet.getInt("Dno")  // Dno 추가
-                        );
-                        employees.add(employee);
-                    }
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                while (resultSet.next()) {
+                    Employee employee = new Employee(
+                            resultSet.getString("Fname") + " " + resultSet.getString("Lname"),
+                            resultSet.getString("SSN"),
+                            resultSet.getDate("Bdate"),
+                            resultSet.getString("Address"),
+                            resultSet.getString("Sex"),
+                            resultSet.getDouble("Salary"),
+                            resultSet.getString("Supervisor"),
+                            resultSet.getString("Dname"),
+                            resultSet.getInt("Dno")  // Dno 추가
+                    );
+                    employees.add(employee);
                 }
             }
         } catch (Exception e) {
@@ -444,17 +470,14 @@ public class EmployeeModel {
         List<String> EmpSsn = new ArrayList<>();
         String query = "SELECT DISTINCT ESSN FROM DEPENDENT";
 
-        try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-            try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD);
-                 Statement statement = connection.createStatement();
-                 ResultSet resultSet = statement.executeQuery(query)) {
+        try (PreparedStatement preparedStatement = connection.prepareStatement(query);
+             ResultSet resultSet = preparedStatement.executeQuery()) {
 
-                while (resultSet.next()) {
-                    String essn = resultSet.getString("Essn");
-                    EmpSsn.add(essn);
-                }
+            while (resultSet.next()) {
+                String essn = resultSet.getString("Essn");
+                EmpSsn.add(essn);
             }
+
         } catch (Exception e) {
             JOptionPane.showMessageDialog(null, "Error: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
@@ -470,22 +493,18 @@ public class EmployeeModel {
                 "LEFT JOIN WORKS_ON W ON P.Pnumber = W.Pno " +
                 "WHERE P.Pname = ? " +
                 "GROUP BY P.Pname, D.Dname";
-        try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-            try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD);
-                 PreparedStatement statement = connection.prepareStatement(query)) {
 
-                statement.setString(1, projectName);
+        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+            preparedStatement.setString(1, projectName);
 
-                try (ResultSet resultSet = statement.executeQuery()) {
-                    if (resultSet.next()) {
-                        String pname = resultSet.getString("Pname");
-                        String dname = resultSet.getString("Dname");
-                        int employeeCount = resultSet.getInt("EmployeeCount");
-                        double totalHours = resultSet.getDouble("TotalHours");
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                if (resultSet.next()) {
+                    String pname = resultSet.getString("Pname");
+                    String dname = resultSet.getString("Dname");
+                    int employeeCount = resultSet.getInt("EmployeeCount");
+                    double totalHours = resultSet.getDouble("TotalHours");
 
-                        return new ProjectInfo(pname, dname, employeeCount, totalHours);
-                    }
+                    return new ProjectInfo(pname, dname, employeeCount, totalHours);
                 }
             }
         } catch (Exception e) {
@@ -493,6 +512,24 @@ public class EmployeeModel {
                     "Error", JOptionPane.ERROR_MESSAGE);
         }
         return null;
+    }
 
+    public List<String> getDeptList(){
+        List<String> deptList = new ArrayList<>();
+        String query = "SELECT DISTINCT Dname FROM DEPARTMENT";
+
+        try (PreparedStatement preparedStatement = connection.prepareStatement(query);
+             ResultSet resultSet = preparedStatement.executeQuery()) {
+
+            while (resultSet.next()) {
+                deptList.add(resultSet.getString("Dname"));
+            }
+
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(null, "부서 목록을 가져오는 중 오류 발생: " + e.getMessage(),
+                    "Error", JOptionPane.ERROR_MESSAGE);
+        }
+
+        return deptList;
     }
 }

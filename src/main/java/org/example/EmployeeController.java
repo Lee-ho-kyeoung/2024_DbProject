@@ -12,6 +12,7 @@ public class EmployeeController {
         this.view = view;
 
         this.view.getSearchButton().addActionListener(e -> loadEmployeeData());
+        // 직계가족 검색시 카테고리 설정
         List<String> essnList = model.getHavingDepEmpSsnList();
         view.setDepEmpCategories(essnList);
 
@@ -47,6 +48,11 @@ public class EmployeeController {
             List<String> projects = model.getProjectList();
             view.setProjectList(projects);
         });
+
+        this.view.addDeptListListener(()->{
+            List<String> deptList = model.getDeptList();
+            view.setDeptCategories(deptList);
+        });
     }
 
     private void loadEmployeeData() {
@@ -81,6 +87,7 @@ public class EmployeeController {
             view.setTableData(employees, selectedFields);
         }
     }
+
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
